@@ -7,6 +7,8 @@ from .generative_features import GenerativeFeatures
 
 def get_backbone(
     cnn: bool = False,
+    in_channels: int = 1,
+    in_features: int = 28 * 28,
     mlp_layers: List[int] = [],
 ) -> Union[MLPBackbone, CNNBackbone]:
     # Init model
@@ -15,9 +17,11 @@ def get_backbone(
             raise ValueError(
                 "Conflicting models. Either set `cnn` to false or `mlp_layers` to `[]`"
             )
-        model = CNNBackbone()
+        model = CNNBackbone(
+            in_channels=in_channels,
+        )
     elif mlp_layers:
-        model = MLPBackbone(in_features=28 * 28, layers=mlp_layers)
+        model = MLPBackbone(in_features=in_features, layers=mlp_layers)
     else:
         raise ValueError(
             "No model parameters were provided, please provide values "
