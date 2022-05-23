@@ -31,16 +31,7 @@ class GenerativeFeatures(nn.Module):
 
         self.fitted = False
 
-    def normalize_embeddings(self):
-        with torch.no_grad():
-            # Normalize class embeddings to avoid empty features
-            embeddings = self.embedding_layer.weight
-            norm = torch.norm(embeddings, dim=-1, keepdim=True)
-            embeddings = embeddings / norm
-            self.embedding_layer.weight.copy_(embeddings)
-
     def forward(self, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
-        self.normalize_embeddings()
         observed_features = self.backbone(x)
         predicted_features = self.embedding_layer(y)
         residual = observed_features - predicted_features
@@ -82,7 +73,9 @@ class GenerativeFeatures(nn.Module):
         # Calculate joint probability for each class
         for i in range(self.num_classes):
             with torch.no_grad():
-                residuals = self.forward(x, self.move_tensor_to_device(torch.tensor(i)))
+                residuals = self.forward(
+                    x, self.move_tensor_to_device(torch.tensor(i))
+                )  # TODO: Use just one op
                 class_probs.append(self.joint_class_probability(residuals, class_idx=i))
         # Marginalize over Y
         class_probs = torch.stack(class_probs, dim=1)
