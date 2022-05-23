@@ -5,6 +5,8 @@ import torch.nn as nn
 from tqdm import tqdm
 from torch.utils.data import DataLoader
 
+from lib.losses.hsic import HSIC
+
 
 def train(
     *,
@@ -27,6 +29,19 @@ def train(
         targets = targets.to(device)
         preds = model(inputs, targets)
         loss = criterion(preds, targets)
+
+        mapped_feats = model.embedding_layer(targets)
+
+        label_loss = 0
+        num_feats = mapped_feats.shape[-1]
+        for i in range(num_feats):
+            label_loss += HSIC(
+                mapped_feats[:, [i]],
+                torch.nn.functional.one_hot(targets, num_classes=10).float(),
+            )
+
+        loss = loss / label_loss
+
         loss.backward()
         optim.step()
 

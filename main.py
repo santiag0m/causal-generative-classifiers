@@ -22,7 +22,14 @@ NUM_CLASSES = 10
 def hsic_one_hot(residuals: torch.tensor, targets: torch.tensor) -> torch.Tensor:
     targets = torch.nn.functional.one_hot(targets, num_classes=NUM_CLASSES).float()
     targets = targets.to(residuals.device)
-    return HSIC(residuals, targets)
+
+    loss = 0
+    num_features = residuals.shape[-1]
+    for i in range(num_features):
+        excluded = [j for j in range(num_features) if j != i]
+        loss += HSIC(residuals[:, [i]], targets)
+        loss += HSIC(residuals[:, [i]], residuals[:, excluded])
+    return loss
 
 
 def experiment(
@@ -148,8 +155,8 @@ def plot_results(df: pd.DataFrame, title: str = ""):
 
 
 def main(
-    num_trials: int = 1,  # 20,
-    num_epochs: int = 20,
+    num_trials: int = 20,
+    num_epochs: int = 7,
     batch_size: int = 32,
     learning_rate: float = 1e-3,
 ):
