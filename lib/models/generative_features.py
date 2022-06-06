@@ -20,11 +20,7 @@ class GenerativeFeatures(nn.Module):
         self.embedding_layer = nn.Embedding(
             num_embeddings=num_classes, embedding_dim=backbone.out_features
         )
-        # Every feature for every class has a KDE
-        # self.kde_list = [
-        #     [None for _ in range(backbone.out_features)]
-        #     for _ in range(self.num_classes)
-        # ]
+        # Every feature has a KDE
         self.kde_list = [[None] for _ in range(backbone.out_features)]
 
         self.class_probs = nn.Parameter(
@@ -40,7 +36,7 @@ class GenerativeFeatures(nn.Module):
         return residual
 
     def fit_kde(self, dataloader: DataLoader, kernel_bandwidth: float = 1.0):
-        # residual_list = [[] for _ in range(self.num_classes)]
+
         residual_list = []
 
         with torch.no_grad():
@@ -50,11 +46,6 @@ class GenerativeFeatures(nn.Module):
                 x = self.move_tensor_to_device(x)
                 y = self.move_tensor_to_device(y)
                 residual = self.forward(x, y)
-
-                # for i in range(self.num_classes):
-                #     class_idx = y == i
-                #     class_residual = residual[class_idx]
-                #     residual_list[i].append(class_residual)
 
                 residual_list.append(
                     residual[y, :]
@@ -66,17 +57,6 @@ class GenerativeFeatures(nn.Module):
                 ).sum(dim=0)
         class_probs = class_probs / total
         self.class_probs.copy_(class_probs)
-
-        # residual_list = [
-        #     torch.cat(class_residuals).cpu().numpy()
-        #     for class_residuals in residual_list
-        # ]
-        # for i in range(self.num_classes):
-        #     class_residual = residual_list[i]
-        #     for j in range(self.backbone.out_features):
-        #         self.kde_list[i][j] = KernelDensity(
-        #             kernel="gaussian", bandwidth=kernel_bandwidth
-        #         ).fit(class_residual[:, [j]])
 
         residual_list = torch.cat(residual_list).cpu().numpy()
         for i in range(self.backbone.out_features):
@@ -111,7 +91,6 @@ class GenerativeFeatures(nn.Module):
         ) * torch.log(self.class_probs[class_idx])
 
         # Calculate class conditional probability of each feature
-        # feature_kdes = self.kde_list[class_idx]
         feature_kdes = self.kde_list
         if residuals.shape[1] != len(feature_kdes):
             raise ValueError(
