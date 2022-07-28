@@ -19,7 +19,7 @@ def divide_probs_with_logits(logits_x, logits_y):
     sigmoid(z) = sigmoid(x) / sigmoid(y)
     """
     zeros = torch.zeros_like(logits_y)
-    terms_left = torch.stack([zeros, -1 * logits_y])
+    terms_left = torch.stack([zeros, -1 * logits_y], dim=-1)
     terms_left = torch.logsumexp(terms_left, dim=-1, keepdim=False)
 
     terms_right = -1 * torch.stack([logits_x, logits_y], dim=-1)
@@ -27,7 +27,10 @@ def divide_probs_with_logits(logits_x, logits_y):
     c = torch.max(terms_right, dim=-1, keepdim=True).values
     terms_right = terms_right - c
     terms_right = c + torch.log(
-        torch.exp(terms_right[..., 0]) - torch.exp([..., 1])
+        torch.exp(terms_right[..., [0]]) - torch.exp(terms_right[..., [1]])
     )
+    terms_right = terms_right[..., 0]
 
     return terms_left - terms_right
+
+
