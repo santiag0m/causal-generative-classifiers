@@ -1,4 +1,4 @@
-from typing import Union
+from typing import Union, Tuple
 
 import torch
 import torch.nn as nn
@@ -8,103 +8,78 @@ from sklearn.neighbors import KernelDensity
 
 from .cnn import CNNBackbone
 from .mlp import MLPBackbone
+from .utils import multiply_probs_with_logits, divide_probs_with_logits
 
 
 class GenerativeFeatures(nn.Module):
     def __init__(
-        self, backbone: Union[CNNBackbone, MLPBackbone], num_classes: int = 10
+        self, backbone: Union[CNNBackbone, MLPBackbone], num_classes: int = 10, eps: float = 1e-6
     ):
         super().__init__()
-        self.num_classes = num_classes
         self.backbone = backbone
-        self.embedding_layer = nn.Embedding(
-            num_embeddings=num_classes, embedding_dim=backbone.out_features
-        )
-        # Every feature has a KDE
-        self.kde_list = [[None] for _ in range(backbone.out_features)]
+        self.num_classes = num_classes
+        self.hidden_dim = backbone.out_features
+        self.eps = eps
 
+        self.embedding_layer = nn.Embedding(
+            num_embeddings=self.num_classes, embedding_dim=self.hidden_dim
+        )
+        self.class_prototypes = nn.Parameter(
+            torch.randn((self.num_classes, self.hidden_dim))
+        )
+        self.residual_classifier = nn.Sequential(
+            nn.Linear(self.hidden_dim, self.hidden_dim),
+            nn.ReLU(),
+            nn.Linear(self.hidden_dim, 1)
+        )
         self.class_probs = nn.Parameter(
             torch.zeros((self.num_classes,)), requires_grad=False
         )
+        self.fitted_class_probs = False
 
-        self.fitted = False
-
-    def forward(self, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
-        observed_features = self.backbone(x)
-        predicted_features = self.embedding_layer(y)
-        residual = observed_features - predicted_features
+    def get_residuals(self, x: torch.Tensor) -> torch.Tensor:
+        observed_features = self.backbone(x)  # (Batch, Features)
+        residuals = observed_features[:, None, :] - self.class_prototypes[None, ...]  # (Batch, Class, Features)
         return residual
 
-    def fit_kde(self, dataloader: DataLoader, kernel_bandwidth: float = 1.0):
+    def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+        residuals = self.get_residuals(x)
+        residuals_ = residuals.detach().reshape(-1, self.hidden_dim)  # (Batch * Class, Features)
+        logits_x_y = self.residual_classifier(residuals_)  # (Batch * Class, 1)
+        logits_x_y = logits_x_y.reshape(-1, self.num_classes)  # (Batch, Class)
+        logits_y_x = self.calculate_posterior(logits_x_y)
+        return residuals, logits_y_x
 
-        residual_list = []
+    def calculate_posterior(self, logits_x_y: torch.Tensor) -> torch.Tensor:
+        if not self.fitted_class_probs:
+            raise ValueError(
+                "Marginal class probabilities have not been estimated.\n"
+                "Call 'self.fit_class_probs(TrainDataloader)' first."
+                )
+        probs_y = torch.clamp(self.class_probs, min=eps, max=1-eps)  # (, Class)
+        logits_y = torch.logit(probs_y[None, ...])  # (1, Class)
+        logits_y = torch.broadcast_to(logits_y, logits_x_y.shape)  # (Batch, Class)
+        logits_joint = multiply_probs_with_logits(logits_x_y, logits_y)  # (Batch, Class)
+        probs_joint = torch.sigmoid(logits_joint)
+        probs_x = torch.sum(probs_joint, dim=-1, keepdim=True)  # (Batch, 1)
+        logits_x = torch.logit(probs_x)
+        logits_x = torch.broadcast_to(logits_x, logits_joint.shape)  # (Batch, Class)
+        logits_y_x = divide_probs_with_logits(logits_joint, logits_x)
+        return logits_y_x
 
-        with torch.no_grad():
-            total = 0
-            class_probs = torch.zeros_like(self.class_probs)
-            for x, y in tqdm(dataloader, total=len(dataloader)):
-                x = self.move_tensor_to_device(x)
-                y = self.move_tensor_to_device(y)
-                residual = self.forward(x, y)
+    def fit_class_probs(self, dataloader: DataLoader):
+        for x, y in tqdm(dataloader, total=len(dataloader)):
+            y = self.move_tensor_to_device(y)
 
-                residual_list.append(
-                    residual[y, :]
-                )  # Just add the feature residuals for the true class
-
-                total += x.shape[0]
-                class_probs += torch.nn.functional.one_hot(
-                    y, num_classes=self.num_classes
-                ).sum(dim=0)
+            total += x.shape[0]
+            class_probs += torch.nn.functional.one_hot(
+                y, num_classes=self.num_classes
+            ).sum(dim=0)
+        
         class_probs = class_probs / total
         self.class_probs.copy_(class_probs)
 
-        residual_list = torch.cat(residual_list).cpu().numpy()
-        for i in range(self.backbone.out_features):
-            self.kde_list[i] = KernelDensity(
-                kernel="gaussian", bandwidth=kernel_bandwidth
-            ).fit(residual_list[:, [i]])
-
-        self.fitted = True
-
-    def predict(self, x: torch.Tensor) -> torch.Tensor:
-        class_probs = []
-        # Calculate joint probability for each class
-        for i in range(self.num_classes):
-            with torch.no_grad():
-                residuals = self.forward(
-                    x, self.move_tensor_to_device(torch.tensor(i))
-                )  # TODO: Use just one op
-                class_probs.append(self.joint_class_probability(residuals, class_idx=i))
-        # Marginalize over Y
-        class_probs = torch.stack(class_probs, dim=1)
-        marginal = class_probs.sum(axis=1, keepdim=True)
-        return class_probs / marginal
-
-    def joint_class_probability(
-        self,
-        residuals: torch.Tensor,
-        class_idx: int,
-    ) -> torch.Tensor:
-        # Get class probability
-        log_likelihood = torch.ones(
-            (residuals.shape[0],), device=residuals.device
-        ) * torch.log(self.class_probs[class_idx])
-
-        # Calculate class conditional probability of each feature
-        feature_kdes = self.kde_list
-        if residuals.shape[1] != len(feature_kdes):
-            raise ValueError(
-                "Residuals are not consistent with the features"
-                f"Expected {len(feature_kdes)} but got {residuals.shape[1]}."
-            )
-        for i, kde_estimator in enumerate(feature_kdes):
-            feat_residuals = residuals[:, [i]].cpu().numpy()
-            feat_log_likelihood = kde_estimator.score_samples(feat_residuals)
-            log_likelihood += self.move_tensor_to_device(
-                torch.tensor(feat_log_likelihood)
-            )
-
-        return torch.exp(log_likelihood)
+        self.fitted_class_probs = True
 
     def move_tensor_to_device(self, x: torch.Tensor) -> torch.Tensor:
         device = next(self.parameters()).device
