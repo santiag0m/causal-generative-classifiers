@@ -48,9 +48,32 @@ def experiment(
     model.fit_class_probs(train_dataloader)
 
     # Train
-    train_history = []
-    val_history = []
+    train_history = {"hsic": [], "cross_entropy": []}
+    val_history = {"hsic": [], "cross_entropy": []}
     best_loss = 1e10
+    for epoch_idx in range(num_epochs):
+        if verbose:
+            print(f"\nEpoch {epoch_idx}")
+        train_loss, _ = train(
+            model=model,
+            dataloader=train_dataloader,
+            optim=optim,
+            use_pbar=verbose,
+            train_classifier=False
+        )
+        val_loss, _ = eval(
+            model=model,
+            dataloader=val_dataloader,
+            use_pbar=verbose,
+            eval_classifier=False
+        )
+        train_history["hsic"].append(train_loss)
+        val_history["hsic"].append(val_loss)
+
+        if val_loss <= best_loss:
+            torch.save(model.state_dict(), "./best.pth")
+            best_loss = val_loss
+
     for epoch_idx in range(num_epochs):
         if verbose:
             print(f"\nEpoch {epoch_idx}")
@@ -59,14 +82,16 @@ def experiment(
             dataloader=train_dataloader,
             optim=optim,
             use_pbar=verbose,
+            train_backbone=False
         )
         val_loss, val_accuracy = eval(
             model=model,
             dataloader=val_dataloader,
             use_pbar=verbose,
+            eval_backbone=False
         )
-        train_history.append(train_loss)
-        val_history.append(val_loss)
+        train_history["cross_entropy"].append(train_loss)
+        val_history["cross_entropy"].append(val_loss)
 
         if val_loss <= best_loss:
             torch.save(model.state_dict(), "./best.pth")
