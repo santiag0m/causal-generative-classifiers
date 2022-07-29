@@ -88,7 +88,7 @@ def eval(
             label_loss = 0
             num_feats = mapped_feats.shape[-1]
             for i in range(num_feats):
-                label_loss -= HSIC(
+                label_loss -= (1/num_feats) * HSIC(
                     mapped_feats[:, [i]],
                     torch.nn.functional.one_hot(
                         targets, num_classes=num_classes
