@@ -170,7 +170,7 @@ def main(
     num_trials: int = 20,
     num_epochs: int = 7,
     batch_size: int = 32,
-    learning_rate: float = 1e-6,
+    learning_rate: float = 1e-4,
 ):
     models = [
         {"model_name": "CNN", "cnn": True},
