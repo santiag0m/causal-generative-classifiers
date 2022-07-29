@@ -65,6 +65,7 @@ class GenerativeFeatures(nn.Module):
         return logits_y_x
 
     def fit_class_probs(self, dataloader: DataLoader):
+        total = 0
         for x, y in tqdm(dataloader, total=len(dataloader)):
             y = self.move_tensor_to_device(y)
 
