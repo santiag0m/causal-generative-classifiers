@@ -112,12 +112,16 @@ def eval(
             if eval_classifier:
                 loss += cross_entropy(logits, targets)
 
-            preds = torch.argmax(logits, dim=-1)
-            correct = preds == targets
-            accuracy.update(correct.cpu())
+            if eval_classifier:
+                preds = torch.argmax(logits, dim=-1)
+                correct = preds == targets
+                accuracy.update(correct.cpu())
+                avg_acc = accuracy.value
+            else:
+                avg_acc = -1
 
             cum_loss += loss.item()
             avg_loss = cum_loss / (idx + 1)
             if use_pbar:
-                pbar.set_description(f"Loss: {avg_loss:.4f} - Acc:{accuracy.value:.4f}")
-    return avg_loss, accuracy.value
+                pbar.set_description(f"Loss: {avg_loss:.4f} - Acc:{avg_acc:.4f}")
+    return avg_loss, avg_acc
