@@ -42,7 +42,7 @@ def train(
 
         if train_backbone:
             residuals = model.get_residuals(inputs)
-            hisc_loss = hsic_one_hot(residuals, targets)
+            hsic_loss = hsic_one_hot(residuals, targets)
             mapped_feats = model.class_prototypes[targets, :]
             label_loss = -1 * HSIC(
                     mapped_feats,
