@@ -203,8 +203,8 @@ def main(
         results.append(exp_results)
     results = group_results(results)
     results["loss_criterion"] = "HSIC Classification"
-    plot_results(results)
     results.to_csv("cls_results.csv", index=False)
+    plot_results(results)
 
 
 if __name__ == "__main__":
