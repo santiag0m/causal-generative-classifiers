@@ -50,7 +50,7 @@ def train(
             with torch.no_grad():
                 residuals = model.get_residuals(inputs)
         if train_classifier:
-            logits = model.clasify_residuals(residuals, detach_residual=detach_residual)
+            logits = model.classify_residuals(residuals, detach_residual=detach_residual)
             loss += cross_entropy(logits, targets)
         
         loss.backward()
@@ -108,7 +108,7 @@ def eval(
                     )
 
             with torch.no_grad():
-                logits = model.clasify_residuals(residuals)
+                logits = model.classify_residuals(residuals)
             if eval_classifier:
                 loss += cross_entropy(logits, targets)
 
