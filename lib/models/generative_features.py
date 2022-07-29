@@ -34,18 +34,25 @@ class GenerativeFeatures(nn.Module):
         )
         self.fitted_class_probs = False
 
+    def forward(self, x: torch.Tensor, detach_residual: bool = True) -> Tuple[torch.Tensor, torch.Tensor]:
+        residuals = self.get_residuals(x)
+        logits_y_x = self.classify_residuals(residuals, detach_residual)
+        return residuals, logits_y_x
+
     def get_residuals(self, x: torch.Tensor) -> torch.Tensor:
         observed_features = self.backbone(x)  # (Batch, Features)
         residuals = observed_features[:, None, :] - self.class_prototypes[None, ...]  # (Batch, Class, Features)
         return residuals
 
-    def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
-        residuals = self.get_residuals(x)
-        residuals_ = residuals.detach().reshape(-1, self.hidden_dim)  # (Batch * Class, Features)
-        logits_x_y = self.residual_classifier(residuals_)  # (Batch * Class, 1)
+    def classify_residuals(self, residuals: torch.Tensor, detach_residual: bool = True) -> Tuple[torch.Tensor]:
+        if detach_residual:
+            residuals = residuals.detach()
+        residuals = residuals.reshape(-1, self.hidden_dim)  # (Batch * Class, Features)
+        logits_x_y = self.residual_classifier(residuals)  # (Batch * Class, 1)
         logits_x_y = logits_x_y.reshape(-1, self.num_classes)  # (Batch, Class)
         logits_y_x = self.calculate_posterior(logits_x_y)
-        return residuals, logits_y_x
+        return logits_y_x
+
 
     def calculate_posterior(self, logits_x_y: torch.Tensor) -> torch.Tensor:
         if not self.fitted_class_probs:
