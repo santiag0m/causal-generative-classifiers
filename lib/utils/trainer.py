@@ -35,13 +35,11 @@ def train(
         loss += cross_entropy(logits, targets)
 
         mapped_feats = model.class_prototypes[targets, :]
-
-        label_loss = 0
-        num_feats = mapped_feats.shape[-1]
-        for i in range(num_feats):
-            label_loss -= HSIC(
-                mapped_feats[:, [i]],
-                torch.nn.functional.one_hot(targets, num_classes=num_classes).float(),
+        label_loss -=  HSIC(
+                mapped_feats,
+                torch.nn.functional.one_hot(
+                    targets, num_classes=num_classes
+                ).float(),
             )
 
         loss = loss + label_loss
@@ -84,16 +82,12 @@ def eval(
             loss += cross_entropy(logits, targets)
 
             mapped_feats = model.class_prototypes[targets, :]
-
-            label_loss = 0
-            num_feats = mapped_feats.shape[-1]
-            for i in range(num_feats):
-                label_loss -= (1/num_feats) * HSIC(
-                    mapped_feats[:, [i]],
-                    torch.nn.functional.one_hot(
-                        targets, num_classes=num_classes
-                    ).float(),
-                )
+            label_loss -=  HSIC(
+                mapped_feats,
+                torch.nn.functional.one_hot(
+                    targets, num_classes=num_classes
+                ).float(),
+            )
 
             loss = loss + label_loss
 
