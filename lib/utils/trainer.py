@@ -30,7 +30,7 @@ def train(
         optim.zero_grad()
         inputs = inputs.to(device)
         targets = targets.to(device)
-        residuals, logits = model(inputs, targets)
+        residuals, logits = model(inputs)
         loss = hsic_one_hot(residuals, targets)
         loss += cross_entropy(logits, targets)
 
@@ -79,7 +79,7 @@ def eval(
         for idx, (inputs, targets) in pbar:
             inputs = inputs.to(device)
             targets = targets.to(device)
-            residuals, logits = model(inputs, targets)
+            residuals, logits = model(inputs)
             loss = hsic_one_hot(residuals, targets)
             loss += cross_entropy(logits, targets)
 
