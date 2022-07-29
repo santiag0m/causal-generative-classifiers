@@ -66,6 +66,7 @@ class GenerativeFeatures(nn.Module):
 
     def fit_class_probs(self, dataloader: DataLoader):
         total = 0
+        class_probs = 0
         for x, y in tqdm(dataloader, total=len(dataloader)):
             y = self.move_tensor_to_device(y)
 
