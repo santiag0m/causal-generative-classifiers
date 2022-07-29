@@ -34,12 +34,12 @@ def hsic_one_hot(residuals: torch.tensor, targets: torch.tensor) -> torch.Tensor
     targets = torch.nn.functional.one_hot(targets, num_classes=num_classes).float()
     targets = targets.to(residuals.device)
 
-    # loss = 0
-    # num_features = residuals.shape[-1]
-    # for i in range(num_features):
-    #     excluded = [j for j in range(num_features) if j != i]
-    #     loss += HSIC(residuals[:, [i]], targets)
-    #     loss += HSIC(residuals[:, [i]], residuals[:, excluded])
+    loss = 0
+    num_features = residuals.shape[-1]
+    for i in range(num_features):
+        excluded = [j for j in range(num_features) if j != i]
+        loss += HSIC(residuals[:, [i]], targets)
+        loss += HSIC(residuals[:, [i]], residuals[:, excluded])
 
-    loss = HSIC(residuals, targets)
+    #loss = HSIC(residuals, targets)
     return loss
