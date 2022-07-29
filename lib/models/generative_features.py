@@ -53,7 +53,7 @@ class GenerativeFeatures(nn.Module):
                 "Marginal class probabilities have not been estimated.\n"
                 "Call 'self.fit_class_probs(TrainDataloader)' first."
                 )
-        probs_y = torch.clamp(self.class_probs, min=eps, max=1-eps)  # (, Class)
+        probs_y = torch.clamp(self.class_probs, min=self.eps, max=1-self.eps)  # (, Class)
         logits_y = torch.logit(probs_y[None, ...])  # (1, Class)
         logits_y = torch.broadcast_to(logits_y, logits_x_y.shape)  # (Batch, Class)
         logits_joint = multiply_probs_with_logits(logits_x_y, logits_y)  # (Batch, Class)
