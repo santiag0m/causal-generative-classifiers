@@ -18,10 +18,11 @@ def train(
     num_classes: int = 10,
     train_backbone: bool = True,
     train_classifier: bool = True,
-    detach_residual: bool = True,
+    only_cross_entropy: bool = False
 ) -> float:
     model.train()
     device = next(model.parameters()).device
+    detach_residual = not only_cross_entropy
 
     cum_loss = 0
     cum_hsic_loss = 0
@@ -40,8 +41,12 @@ def train(
 
         loss = 0
 
-        if train_backbone:
-            residuals = model.get_residuals(inputs)
+        residuals = model.get_residuals(inputs)
+
+        if only_cross_entropy:
+            hsic_loss = -1
+            label_loss = -1
+        else:
             hsic_loss = hsic_one_hot(residuals, targets)
             mapped_feats = model.class_prototypes[targets, :]
 
@@ -57,13 +62,9 @@ def train(
             loss += hsic_loss + label_loss
             hsic_loss = hsic_loss.item()
             label_loss = label_loss.item()
-        else:
-            with torch.no_grad():
-                residuals = model.get_residuals(inputs)
-            hsic_loss = -1
-            label_loss = -1
+
         if train_classifier:
-            logits = model.classify_residuals(residuals, detach_residual=detach_residual)
+            logits = model.classify_residuals(residuals, detach_residual=not only_cross_entropy)
             ce_loss = cross_entropy(logits, targets)
             loss += ce_loss
             ce_loss = ce_loss.item()
