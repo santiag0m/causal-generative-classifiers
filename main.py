@@ -56,7 +56,7 @@ def experiment(
     for epoch_idx in range(num_epochs):
         if verbose:
             print(f"\nEpoch {epoch_idx}")
-        train_loss, _ = train(
+        train_loss, train_accuracy = train(
             model=model,
             dataloader=train_dataloader,
             optim=optim,
@@ -64,7 +64,7 @@ def experiment(
             train_classifier=only_cross_entropy,
             only_cross_entropy=only_cross_entropy
         )
-        val_loss, _ = eval(
+        val_loss, val_accuracy = eval(
             model=model,
             dataloader=val_dataloader,
             use_pbar=verbose,
