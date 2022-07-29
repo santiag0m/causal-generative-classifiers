@@ -49,7 +49,7 @@ def train(
         optim.step()
 
         preds = torch.argmax(logits, dim=-1)
-        correct = logits == targets
+        correct = preds == targets
         accuracy.update(correct.cpu())
 
         cum_loss += loss.item()
@@ -98,7 +98,7 @@ def eval(
             loss = loss + label_loss
 
             preds = torch.argmax(logits, dim=-1)
-            correct = logits == targets
+            correct = preds == targets
             accuracy.update(correct.cpu())
 
             cum_loss += loss.item()
