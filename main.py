@@ -24,6 +24,7 @@ def experiment(
     num_epochs: int,
     cnn: bool = False,
     mlp_layers: List[int] = [],
+    only_cross_entropy: bool = False
     verbose: bool = True,
     **kwargs,
 ):
@@ -51,6 +52,7 @@ def experiment(
     train_history = {"hsic": [], "cross_entropy": []}
     val_history = {"hsic": [], "cross_entropy": []}
     best_loss = 1e10
+
     for epoch_idx in range(num_epochs):
         if verbose:
             print(f"\nEpoch {epoch_idx}")
@@ -59,13 +61,14 @@ def experiment(
             dataloader=train_dataloader,
             optim=optim,
             use_pbar=verbose,
-            train_classifier=False
+            train_classifier=only_cross_entropy,
+            only_cross_entropy=only_cross_entropy
         )
         val_loss, _ = eval(
             model=model,
             dataloader=val_dataloader,
             use_pbar=verbose,
-            eval_classifier=False
+            eval_classifier=only_cross_entropy
         )
         train_history["hsic"].append(train_loss)
         val_history["hsic"].append(val_loss)
@@ -74,28 +77,30 @@ def experiment(
             torch.save(model.state_dict(), "./best.pth")
             best_loss = val_loss
 
-    for epoch_idx in range(num_epochs):
-        if verbose:
-            print(f"\nEpoch {epoch_idx}")
-        train_loss, train_accuracy = train(
-            model=model,
-            dataloader=train_dataloader,
-            optim=optim,
-            use_pbar=verbose,
-            train_backbone=False
-        )
-        val_loss, val_accuracy = eval(
-            model=model,
-            dataloader=val_dataloader,
-            use_pbar=verbose,
-            eval_backbone=False
-        )
-        train_history["cross_entropy"].append(train_loss)
-        val_history["cross_entropy"].append(val_loss)
+    if not only_cross_entropy:
+        # Train classifier in second step
+        for epoch_idx in range(num_epochs):
+            if verbose:
+                print(f"\nEpoch {epoch_idx}")
+            train_loss, train_accuracy = train(
+                model=model,
+                dataloader=train_dataloader,
+                optim=optim,
+                use_pbar=verbose,
+                train_backbone=False
+            )
+            val_loss, val_accuracy = eval(
+                model=model,
+                dataloader=val_dataloader,
+                use_pbar=verbose,
+                eval_backbone=False
+            )
+            train_history["cross_entropy"].append(train_loss)
+            val_history["cross_entropy"].append(val_loss)
 
-        if val_loss <= best_loss:
-            torch.save(model.state_dict(), "./best.pth")
-            best_loss = val_loss
+            if val_loss <= best_loss:
+                torch.save(model.state_dict(), "./best.pth")
+                best_loss = val_loss
 
     # Check accuracy
     target_loss, target_accuracy = eval(
@@ -171,6 +176,7 @@ def main(
     num_epochs: int = 20,
     batch_size: int = 32,
     learning_rate: float = 1e-3,
+    only_cross_entropy: bool = False
 ):
     models = [
         {"model_name": "CNN", "cnn": True},
@@ -188,6 +194,7 @@ def main(
             "num_epochs": num_epochs,
             "batch_size": batch_size,
             "learning_rate": learning_rate,
+            "only_cross_entropy": only_cross_entropy
         }
         experiment_config = {**experiment_config, **model_config}
         exp_results = multiple_trials(
@@ -201,4 +208,9 @@ def main(
 
 
 if __name__ == "__main__":
-    main()
+    import argparse
+
+    parser = argparse.ArgumentParser(description='Experiment setup')
+    parser.add_argument('only_cross_entropy', action="store_true")
+    args = parser.parse_args()
+    main(**args)
