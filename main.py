@@ -95,7 +95,8 @@ def experiment(
 
 def multiple_trials(experiment_config: Dict, num_trials: int) -> Dict:
     results = []
-    for i in tqdm(range(num_trials)):
+    for i in range(num_trials):
+        print(f"Experiment {i+1}/{num_trials}")
         trial_results = experiment(**experiment_config)
         results.append(trial_results)
 
