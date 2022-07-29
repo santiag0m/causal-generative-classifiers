@@ -211,6 +211,6 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description='Experiment setup')
-    parser.add_argument('only_cross_entropy', action="store_true")
+    parser.add_argument('--only_cross_entropy', action="store_true")
     args = parser.parse_args()
     main(only_cross_entropy=args.only_cross_entropy)
