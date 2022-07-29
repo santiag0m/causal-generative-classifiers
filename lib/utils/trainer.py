@@ -44,12 +44,16 @@ def train(
             residuals = model.get_residuals(inputs)
             hsic_loss = hsic_one_hot(residuals, targets)
             mapped_feats = model.class_prototypes[targets, :]
-            label_loss = -1 * HSIC(
-                    mapped_feats,
-                    torch.nn.functional.one_hot(
-                        targets, num_classes=num_classes
-                    ).float(),
-                )
+
+            num_feats = mapped_feats.shape[1]
+            label_loss = 0
+            for i in range(num_feats):
+                label_loss -= (1 / num_feats) * HSIC(
+                        mapped_feats[:, [i]],
+                        torch.nn.functional.one_hot(
+                            targets, num_classes=num_classes
+                        ).float(),
+                    )
             loss += hsic_loss + label_loss
             hsic_loss = hsic_loss.item()
             label_loss = label_loss.item()
@@ -125,12 +129,15 @@ def eval(
             if eval_backbone:
                 hsic_loss = hsic_one_hot(residuals, targets)
                 mapped_feats = model.class_prototypes[targets, :]
-                label_loss = -1 * HSIC(
-                        mapped_feats,
-                        torch.nn.functional.one_hot(
-                            targets, num_classes=num_classes
-                        ).float(),
-                    )
+                num_feats = mapped_feats.shape[1]
+                label_loss = 0
+                for i in range(num_feats):
+                    label_loss -= (1 / num_feats) * HSIC(
+                            mapped_feats[:, [i]],
+                            torch.nn.functional.one_hot(
+                                targets, num_classes=num_classes
+                            ).float(),
+                        )
                 loss = hsic_loss + label_loss
                 hsic_loss = hsic_loss.item()
                 label_loss = label_loss.item()
