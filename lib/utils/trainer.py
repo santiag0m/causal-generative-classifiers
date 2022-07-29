@@ -22,7 +22,11 @@ def train(
 ) -> float:
     model.train()
     device = next(model.parameters()).device
+
     cum_loss = 0
+    cum_hsic_loss = 0
+    cum_label_loss = 0
+    cum_ce_loss = 0
     if use_pbar:
         pbar = tqdm(enumerate(dataloader), total=len(dataloader))
     else:
@@ -38,20 +42,29 @@ def train(
 
         if train_backbone:
             residuals = model.get_residuals(inputs)
-            loss += hsic_one_hot(residuals, targets)
+            hisc_loss = hsic_one_hot(residuals, targets)
             mapped_feats = model.class_prototypes[targets, :]
-            loss -= HSIC(
+            label_loss = -1 * HSIC(
                     mapped_feats,
                     torch.nn.functional.one_hot(
                         targets, num_classes=num_classes
                     ).float(),
                 )
+            loss += hsic_loss + label_loss
+            hsic_loss = hsic_loss.item()
+            label_loss = label_loss.item()
         else:
             with torch.no_grad():
                 residuals = model.get_residuals(inputs)
+            hsic_loss = -1
+            label_loss = -1
         if train_classifier:
             logits = model.classify_residuals(residuals, detach_residual=detach_residual)
-            loss += cross_entropy(logits, targets)
+            ce_loss = cross_entropy(logits, targets)
+            loss += ce_loss
+            ce_loss = ce_loss.item()
+        else:
+            ce_loss = -1
         
         loss.backward()
         optim.step()
@@ -65,9 +78,17 @@ def train(
             avg_acc = -1
 
         cum_loss += loss.item()
+        cum_hsic_loss += hsic_loss
+        cum_label_loss += label_loss
+        cum_ce_loss += ce_loss
+
         avg_loss = cum_loss / (idx + 1)
+        avg_hsic_loss = cum_hsic_loss / (idx + 1)
+        avg_label_loss = cum_label_loss / (idx + 1)
+        avg_ce_loss = cum_ce_loss / (idx + 1)
+
         if use_pbar:
-            pbar.set_description(f"Loss: {avg_loss:.4f} - Acc:{avg_acc:.4f}")
+            pbar.set_description(f"{=avg_hsic_loss:.3f} {=avg_label_loss:.3f} {=avg_ce_loss:.3f} {=avg_acc:.3f}")
     return avg_loss, avg_acc
 
 
@@ -82,7 +103,11 @@ def eval(
 ) -> float:
     model.eval()
     device = next(model.parameters()).device
+    
     cum_loss = 0
+    cum_hsic_loss = 0
+    cum_label_loss = 0
+    cum_ce_loss = 0
     if use_pbar:
         pbar = tqdm(enumerate(dataloader), total=len(dataloader))
     else:
@@ -98,19 +123,28 @@ def eval(
             with torch.no_grad():
                 residuals = model.get_residuals(inputs)
             if eval_backbone:
-                loss += hsic_one_hot(residuals, targets)
+                hsic_loss = hsic_one_hot(residuals, targets)
                 mapped_feats = model.class_prototypes[targets, :]
-                loss -= HSIC(
+                label_loss = -1 * HSIC(
                         mapped_feats,
                         torch.nn.functional.one_hot(
                             targets, num_classes=num_classes
                         ).float(),
                     )
+                loss = hsic_loss + label_loss
+                hsic_loss = hsic_loss.item()
+                label_loss = label_loss.item()
+            else:
+                hsic_loss = -1
+                label_loss = -1
 
             with torch.no_grad():
                 logits = model.classify_residuals(residuals)
             if eval_classifier:
-                loss += cross_entropy(logits, targets)
+                ce_loss = cross_entropy(logits, targets)
+                loss += ce_loss
+            else:
+                ce_loss = -1
 
             if eval_classifier:
                 preds = torch.argmax(logits, dim=-1)
@@ -121,7 +155,15 @@ def eval(
                 avg_acc = -1
 
             cum_loss += loss.item()
+            cum_hsic_loss += hsic_loss
+            cum_label_loss += label_loss
+            cum_ce_loss += ce_loss
+
             avg_loss = cum_loss / (idx + 1)
+            avg_hsic_loss = cum_hsic_loss / (idx + 1)
+            avg_label_loss = cum_label_loss / (idx + 1)
+            avg_ce_loss = cum_ce_loss / (idx + 1)
+
             if use_pbar:
-                pbar.set_description(f"Loss: {avg_loss:.4f} - Acc:{avg_acc:.4f}")
+                pbar.set_description(f"[VAL] {=avg_hsic_loss:.3f} {=avg_label_loss:.3f} {=avg_ce_loss:.3f} {=avg_acc:.3f}")
     return avg_loss, avg_acc
