@@ -67,7 +67,7 @@ class GenerativeFeatures(nn.Module):
     def fit_class_probs(self, dataloader: DataLoader):
         total = 0
         class_probs = 0
-        for x, y in tqdm(dataloader, total=len(dataloader)):
+        for x, y in dataloader:
             y = self.move_tensor_to_device(y)
 
             total += x.shape[0]
@@ -79,6 +79,8 @@ class GenerativeFeatures(nn.Module):
         self.class_probs.copy_(class_probs)
 
         self.fitted_class_probs = True
+
+        print(f"Class probabilities: {self.class_probs}")
 
     def move_tensor_to_device(self, x: torch.Tensor) -> torch.Tensor:
         device = next(self.parameters()).device
