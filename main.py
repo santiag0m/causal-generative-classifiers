@@ -59,13 +59,11 @@ def experiment(
             dataloader=train_dataloader,
             optim=optim,
             use_pbar=verbose,
-            train_classifier=False
         )
         val_loss, _ = eval(
             model=model,
             dataloader=val_dataloader,
             use_pbar=verbose,
-            eval_classifier=False
         )
         train_history["hsic"].append(train_loss)
         val_history["hsic"].append(val_loss)
@@ -74,28 +72,29 @@ def experiment(
             torch.save(model.state_dict(), "./best.pth")
             best_loss = val_loss
 
-    for epoch_idx in range(num_epochs):
-        if verbose:
-            print(f"\nEpoch {epoch_idx}")
-        train_loss, train_accuracy = train(
-            model=model,
-            dataloader=train_dataloader,
-            optim=optim,
-            use_pbar=verbose,
-            train_backbone=False
-        )
-        val_loss, val_accuracy = eval(
-            model=model,
-            dataloader=val_dataloader,
-            use_pbar=verbose,
-            eval_backbone=False
-        )
-        train_history["cross_entropy"].append(train_loss)
-        val_history["cross_entropy"].append(val_loss)
+    if False:
+        for epoch_idx in range(num_epochs):
+            if verbose:
+                print(f"\nEpoch {epoch_idx}")
+            train_loss, train_accuracy = train(
+                model=model,
+                dataloader=train_dataloader,
+                optim=optim,
+                use_pbar=verbose,
+                train_backbone=False
+            )
+            val_loss, val_accuracy = eval(
+                model=model,
+                dataloader=val_dataloader,
+                use_pbar=verbose,
+                eval_backbone=False
+            )
+            train_history["cross_entropy"].append(train_loss)
+            val_history["cross_entropy"].append(val_loss)
 
-        if val_loss <= best_loss:
-            torch.save(model.state_dict(), "./best.pth")
-            best_loss = val_loss
+            if val_loss <= best_loss:
+                torch.save(model.state_dict(), "./best.pth")
+                best_loss = val_loss
 
     # Check accuracy
     target_loss, target_accuracy = eval(
