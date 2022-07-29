@@ -21,9 +21,6 @@ class GenerativeFeatures(nn.Module):
         self.hidden_dim = backbone.out_features
         self.eps = eps
 
-        self.embedding_layer = nn.Embedding(
-            num_embeddings=self.num_classes, embedding_dim=self.hidden_dim
-        )
         self.class_prototypes = nn.Parameter(
             torch.randn((self.num_classes, self.hidden_dim))
         )
