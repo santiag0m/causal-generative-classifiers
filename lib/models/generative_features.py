@@ -37,7 +37,7 @@ class GenerativeFeatures(nn.Module):
     def get_residuals(self, x: torch.Tensor) -> torch.Tensor:
         observed_features = self.backbone(x)  # (Batch, Features)
         residuals = observed_features[:, None, :] - self.class_prototypes[None, ...]  # (Batch, Class, Features)
-        return residual
+        return residuals
 
     def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         residuals = self.get_residuals(x)
