@@ -28,7 +28,7 @@ def hsic_one_hot(residuals: torch.tensor, targets: torch.tensor) -> torch.Tensor
     batch, num_classes, hidden_dim = residuals.shape
     # Select only class residuals for independence
     index = torch.reshape(targets, (batch, 1, 1))
-    index = torch.broadcast_to(index, shape=(batch, num_classes, hidden_dim))
+    index = torch.broadcast_to(index, size=(batch, num_classes, hidden_dim))
     residuals = torch.gather(residuals, dim=1, index=index)[:, 0, :]
 
     targets = torch.nn.functional.one_hot(targets, num_classes=num_classes).float()
