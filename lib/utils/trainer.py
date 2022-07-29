@@ -6,7 +6,7 @@ from tqdm import tqdm
 from torch.utils.data import DataLoader
 from torch.nn.functional import cross_entropy
 
-from lib.losses.hsic import hsic_one_hot
+from lib.losses.hsic import HSIC, hsic_one_hot
 from .running_average import RunningAverage
 
 def train(
