@@ -23,3 +23,20 @@ def HSIC(x, y, s_x=1, s_y=1):
     H = H.to(x.device)
     HSIC = torch.trace(torch.mm(L, torch.mm(H, torch.mm(K, H)))) / ((m - 1) ** 2)
     return HSIC
+
+def hsic_one_hot(residuals: torch.tensor, targets: torch.tensor) -> torch.Tensor:
+    num_classes = residuals.shape[1]
+    residuals = residuals[:, targets, :]  # Select only class residuals for independence
+
+    targets = torch.nn.functional.one_hot(targets, num_classes=num_classes).float()
+    targets = targets.to(residuals.device)
+
+    # loss = 0
+    # num_features = residuals.shape[-1]
+    # for i in range(num_features):
+    #     excluded = [j for j in range(num_features) if j != i]
+    #     loss += HSIC(residuals[:, [i]], targets)
+    #     loss += HSIC(residuals[:, [i]], residuals[:, excluded])
+
+    loss = HSIC(residuals, targets)
+    return loss

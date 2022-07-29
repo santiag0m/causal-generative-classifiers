@@ -19,19 +19,6 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 NUM_CLASSES = 10
 
 
-def hsic_one_hot(residuals: torch.tensor, targets: torch.tensor) -> torch.Tensor:
-    targets = torch.nn.functional.one_hot(targets, num_classes=NUM_CLASSES).float()
-    targets = targets.to(residuals.device)
-
-    loss = 0
-    num_features = residuals.shape[-1]
-    for i in range(num_features):
-        excluded = [j for j in range(num_features) if j != i]
-        loss += HSIC(residuals[:, [i]], targets)
-        loss += HSIC(residuals[:, [i]], residuals[:, excluded])
-    return loss
-
-
 def experiment(
     batch_size: int,
     learning_rate: float,
@@ -58,6 +45,9 @@ def experiment(
     # Setup Optimizer
     optim = torch.optim.Adam(params=model.parameters(), lr=learning_rate)
 
+    # Fit class priors before training
+    model.fit_class_probs(train_dataloader)
+
     # Train
     train_history = []
     val_history = []
@@ -65,16 +55,14 @@ def experiment(
     for epoch_idx in range(num_epochs):
         if verbose:
             print(f"\nEpoch {epoch_idx}")
-        train_loss = train(
+        train_loss, train_accuracy = train(
             model=model,
-            criterion=hsic_one_hot,
             dataloader=train_dataloader,
             optim=optim,
             use_pbar=verbose,
         )
-        val_loss = eval(
+        val_loss, val_accuracy = eval(
             model=model,
-            criterion=hsic_one_hot,
             dataloader=val_dataloader,
             use_pbar=verbose,
         )
@@ -85,13 +73,12 @@ def experiment(
             torch.save(model.state_dict(), "./best.pth")
             best_loss = val_loss
 
-    # Fit KDE after training
-    model.fit_kde(train_dataloader)
-
     # Check accuracy
-    train_accuracy = compute_accuracy(model, train_dataloader)
-    val_accuracy = compute_accuracy(model, val_dataloader)
-    target_accuracy = compute_accuracy(model, target_dataloader)
+    target_loss, target_accuracy = eval(
+            model=model,
+            dataloader=target_dataloader,
+            use_pbar=verbose,
+        )
 
     if verbose:
         print(f"{train_accuracy=:.4f}, {val_accuracy=:.4f}, {target_accuracy=:.4f}\n")
