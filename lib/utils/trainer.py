@@ -88,7 +88,7 @@ def train(
         avg_ce_loss = cum_ce_loss / (idx + 1)
 
         if use_pbar:
-            pbar.set_description(f"{=avg_hsic_loss:.3f} {=avg_label_loss:.3f} {=avg_ce_loss:.3f} {=avg_acc:.3f}")
+            pbar.set_description(f"{avg_hsic_loss=:.3f} {avg_label_loss=:.3f} {avg_ce_loss=:.3f} {avg_acc=:.3f}")
     return avg_loss, avg_acc
 
 
@@ -165,5 +165,5 @@ def eval(
             avg_ce_loss = cum_ce_loss / (idx + 1)
 
             if use_pbar:
-                pbar.set_description(f"[VAL] {=avg_hsic_loss:.3f} {=avg_label_loss:.3f} {=avg_ce_loss:.3f} {=avg_acc:.3f}")
+                pbar.set_description(f"[VAL] {avg_hsic_loss=:.3f} {avg_label_loss=:.3f} {avg_ce_loss=:.3f} {avg_acc=:.3f}")
     return avg_loss, avg_acc
