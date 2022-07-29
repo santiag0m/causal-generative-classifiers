@@ -24,7 +24,7 @@ def experiment(
     num_epochs: int,
     cnn: bool = False,
     mlp_layers: List[int] = [],
-    only_cross_entropy: bool = False
+    only_cross_entropy: bool = False,
     verbose: bool = True,
     **kwargs,
 ):
