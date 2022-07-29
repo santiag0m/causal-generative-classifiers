@@ -135,9 +135,9 @@ def multiple_trials(experiment_config: Dict, num_trials: int) -> Dict:
     target_accuracy = [trial["target_accuracy"] for trial in results]
 
     results = {
-        "train": pd.Series(train_accuracy).rename(experiment_config["model_name"]),
-        # "val": pd.Series(val_accuracy).rename(experiment_config["model_name"]),
-        "target": pd.Series(target_accuracy).rename(experiment_config["model_name"]),
+        "train": pd.Series(train_accuracy).fillna(0)rename(experiment_config["model_name"]),
+        # "val": pd.Series(val_accuracy).fillna(0).rename(experiment_config["model_name"]),
+        "target": pd.Series(target_accuracy).fillna(0).rename(experiment_config["model_name"]),
     }
 
     return results
