@@ -10,7 +10,6 @@ from torch.utils.data import DataLoader, random_split
 from lib.losses import HSIC
 from lib.datasets import MNIST
 from lib.utils.trainer import train, eval
-from lib.utils.accuracy import compute_accuracy
 from lib.models import get_backbone, GenerativeFeatures
 
 
