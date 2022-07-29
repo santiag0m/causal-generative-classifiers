@@ -3,7 +3,7 @@ import torch.nn as nn
 
 
 class CNNBackbone(nn.Module):
-    def __init__(self, in_channels: int = 1, out_features: int = 16):
+    def __init__(self, in_channels: int = 1, out_features: int = 8):
         super().__init__()
 
         self.out_features = out_features
