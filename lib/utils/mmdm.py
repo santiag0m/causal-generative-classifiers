@@ -1,4 +1,4 @@
-from typing import Callable, Sequence
+from typing import Callable, Iterable
 
 import torch
 import torch.nn as nn
@@ -16,7 +16,7 @@ class MMDMOptim:
     """
     def __init__(
             self,
-            params: Sequence[nn.Parameter],
+            params: Iterable[nn.Parameter],
             lr: float,
             epsilon: float = 0,
             damping: float = 10.0,
@@ -25,7 +25,7 @@ class MMDMOptim:
             **kwargs
         ):
 
-        device = next(model.parameters()).device
+        device = next(params).device
 
         self.epsilon = epsilon
         self.damping = damping
