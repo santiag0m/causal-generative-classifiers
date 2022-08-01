@@ -6,6 +6,7 @@ from tqdm import tqdm
 from torch.utils.data import DataLoader
 from torch.nn.functional import cross_entropy
 
+from .mmdm import MMDMOptim
 from .running_average import RunningAverage
 from lib.losses.hsic import HSIC, hsic_residuals, hsic_prototypes, hsic_independence
 
@@ -14,7 +15,7 @@ def train(
     *,
     model: nn.Module,
     dataloader: DataLoader,
-    optim: torch.optim.Optimizer,
+    mmdm_optim: MMDMOptim,
     use_pbar: bool = False,
     num_classes: int = 10,
     train_backbone: bool = True,
@@ -51,7 +52,7 @@ def train(
             hsic_loss = hsic_residuals(residuals, targets)
             label_loss = hsic_prototypes(model.class_prototypes, targets)
             indep_loss = hsic_independence(residuals, targets)
-            loss += hsic_loss + label_loss
+            loss += label_loss + indep_loss
             hsic_loss = hsic_loss.item()
             label_loss = label_loss.item()
 
@@ -62,9 +63,14 @@ def train(
             ce_loss = ce_loss.item()
         else:
             ce_loss = -1
-        
-        loss.backward()
-        optim.step()
+
+        if only_cross_entropy:
+            loss.backward()
+            mmdm_optim.model_optim.step()
+        else:
+            loss = mmdm_optim.lagrangian(main_loss=loss, constrained_loss=hsic_loss)
+            loss.backward()
+            mmdm_optim.step()
 
         if train_classifier:
             preds = torch.argmax(logits, dim=-1)
@@ -123,7 +129,7 @@ def eval(
                 hsic_loss = hsic_residuals(residuals, targets)
                 label_loss = hsic_prototypes(model.class_prototypes, targets)
                 indep_loss = hsic_independence(residuals, targets)
-                loss += hsic_loss + label_loss
+                loss += label_loss + indep_loss
                 hsic_loss = hsic_loss.item()
                 label_loss = label_loss.item()
             else:

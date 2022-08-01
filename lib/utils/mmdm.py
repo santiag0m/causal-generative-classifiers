@@ -1,4 +1,4 @@
-from typing import Callable
+from typing import Callable, Sequence
 
 import torch
 import torch.nn as nn
@@ -16,7 +16,7 @@ class MMDMOptim:
     """
     def __init__(
             self,
-            model: nn.Module,
+            params: Sequence[nn.Parameter],
             lr: float,
             epsilon: float = 0,
             damping: float = 10.0,
@@ -31,7 +31,7 @@ class MMDMOptim:
         self.damping = damping
         self.lambda_ = Lambda().to(device)
         self.lambda_optim = torch.optim.SGD(self.lambda_.parameters(), lr=lambda_lr)
-        self.model_optim = model_optim(model.parameters, lr=lr, **kwargs)
+        self.model_optim = model_optim(params, lr=lr, **kwargs)
 
     def lagrangian(self, main_loss: torch.Tensor, constrained_loss: torch.Tensor) -> torch.Tensor:
         damp = self.damping * (self.epsilon - constrained_loss.detach())

@@ -9,9 +9,9 @@ from torch.utils.data import DataLoader, random_split
 
 from lib.losses import HSIC
 from lib.datasets import MNIST
+from lib.utils.mmdm import MMDMOptim
 from lib.utils.trainer import train, eval
 from lib.models import get_backbone, GenerativeFeatures
-
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -43,7 +43,7 @@ def experiment(
     target_dataloader = DataLoader(target_dataset, batch_size=batch_size)
 
     # Setup Optimizer
-    optim = torch.optim.Adam(params=model.parameters(), lr=learning_rate)
+    optim = MMDMOptim(params=model.parameters(), lr=learning_rate, model_optim=torch.optim.SGD)
 
     # Fit class priors before training
     model.fit_class_probs(train_dataloader)
