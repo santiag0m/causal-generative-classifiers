@@ -37,7 +37,7 @@ def train(
 
     accuracy = RunningAverage()
     for idx, (inputs, targets) in pbar:
-        optim.zero_grad()
+        mmdm_optim.zero_grad()
         inputs = inputs.to(device)
         targets = targets.to(device)
 
