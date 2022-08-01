@@ -54,7 +54,7 @@ def hsic_prototypes(prototypes: torch.tensor, targets: torch.tensor, featurewise
         loss = -1 * HSIC(prototypes, targets)
     return loss
 
-def hsic_features(features: torch.tensor, targets: torch.tensor, featurewise: bool = True) -> torch.Tensor:
+def hsic_features(features: torch.tensor, targets: torch.tensor, num_classes: int = 10, featurewise: bool = True) -> torch.Tensor:
     batch, num_feats = features.shape
 
     targets = torch.nn.functional.one_hot(targets, num_classes=num_classes).float()
