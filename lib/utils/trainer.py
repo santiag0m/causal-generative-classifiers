@@ -53,8 +53,6 @@ def train(
             label_loss = hsic_prototypes(model.class_prototypes, targets)
             indep_loss = hsic_independence(residuals, targets)
             loss += label_loss + indep_loss
-            hsic_loss = hsic_loss.item()
-            label_loss = label_loss.item()
 
         if train_classifier:
             logits = model.classify_residuals(residuals, detach_residual=not only_cross_entropy)
@@ -71,6 +69,9 @@ def train(
             loss = mmdm_optim.lagrangian(main_loss=loss, constrained_loss=hsic_loss)
             loss.backward()
             mmdm_optim.step()
+
+            hsic_loss = hsic_loss.item()
+            label_loss = label_loss.item()
 
         if train_classifier:
             preds = torch.argmax(logits, dim=-1)
