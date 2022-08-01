@@ -48,9 +48,7 @@ class GenerativeFeatures(nn.Module):
         residuals = observed_features[:, None, :] - self.class_prototypes[None, ...]  # (Batch, Class, Features)
         return residuals
 
-    def classify_residuals(self, residuals: torch.Tensor, detach_residual: bool = True) -> Tuple[torch.Tensor]:
-        if detach_residual:
-            residuals = residuals.clone().detach()
+    def classify_residuals(self, residuals: torch.Tensor) -> Tuple[torch.Tensor]:
         residuals = residuals.reshape(-1, self.hidden_dim)  # (Batch * Class, Features)
         logits_z_y = self.residual_classifier(residuals)  # (Batch * Class, 1)
         logits_z_y = logits_z_y.reshape(-1, self.num_classes)  # (Batch, Class)

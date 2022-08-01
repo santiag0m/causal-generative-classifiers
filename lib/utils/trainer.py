@@ -44,19 +44,26 @@ def train(
         loss = 0
 
         features = model.get_features(inputs)
+        prototypes = model.class_prototypes
         residuals = model.get_residuals(features)
+
+        if not train_backbone:
+            features = features.detach()
+            prototypes = prototypes.detach()
+            residuals = residuals.detach()
 
         if only_cross_entropy:
             hsic_loss = -1
             label_loss = -1
         else:
             hsic_loss = hsic_residuals(residuals, targets)
-            label_loss = hsic_features(features, model.class_prototypes, targets)
+            label_loss = hsic_features(features, prototypes, targets)
             indep_loss = hsic_independence(residuals, targets)
             loss += label_loss + indep_loss
+            
 
         if train_classifier:
-            logits = model.classify_residuals(residuals, detach_residual=not only_cross_entropy)
+            logits = model.classify_residuals(residuals)
             ce_loss = cross_entropy(logits, targets)
             loss += ce_loss
             ce_loss = ce_loss.item()
