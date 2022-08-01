@@ -20,11 +20,11 @@ def train(
     num_classes: int = 10,
     train_backbone: bool = True,
     train_classifier: bool = True,
-    only_cross_entropy: bool = False
+    use_hsic: bool = True,
+    use_cross_entropy: bool = False
 ) -> float:
     model.train()
     device = next(model.parameters()).device
-    detach_residual = not only_cross_entropy
 
     cum_loss = 0
     cum_hsic_loss = 0
@@ -52,36 +52,38 @@ def train(
             prototypes = prototypes.detach()
             residuals = residuals.detach()
 
-        if only_cross_entropy:
-            hsic_loss = -1
-            label_loss = -1
-        else:
+        if train_classifier:
+            logits = model.classify_residuals(residuals)
+
+        if use_hsic:
             hsic_loss = hsic_residuals(residuals, targets)
             label_loss = hsic_features(features, targets)
             # indep_loss = hsic_independence(residuals, targets)
             loss += label_loss # + indep_loss
+        else:
+            hsic_loss = -1
+            label_loss = -1
             
 
-        if train_classifier:
-            logits = model.classify_residuals(residuals)
+        if use_cross_entropy:
             ce_loss = cross_entropy(logits, targets)
             loss += ce_loss
             ce_loss = ce_loss.item()
         else:
             ce_loss = -1
 
-        if only_cross_entropy:
-            loss.backward()
-            mmdm_optim.model_optim.step()
-        else:
+        if use_hsic:
             loss = mmdm_optim.lagrangian(main_loss=loss, constrained_loss=hsic_loss, target_value=0)
             loss.backward()
             mmdm_optim.step()
 
             hsic_loss = hsic_loss.item()
             label_loss = label_loss.item()
+        else:
+            loss.backward()
+            mmdm_optim.model_optim.step()
 
-        if train_classifier:
+        if use_cross_entropy:
             preds = torch.argmax(logits, dim=-1)
             correct = preds == targets
             accuracy.update(correct.cpu())
@@ -110,8 +112,8 @@ def eval(
     dataloader: DataLoader,
     use_pbar: bool = False,
     num_classes: int = 10,
-    eval_backbone: bool = True,
-    eval_classifier: bool = True
+    use_hsic: bool = True,
+    use_cross_entropy: bool = False,
 ) -> float:
     model.eval()
     device = next(model.parameters()).device
@@ -132,10 +134,12 @@ def eval(
             targets = targets.to(device)
 
             loss = 0
-            with torch.no_grad():
-                features = model.get_features(inputs)
-                residuals = model.get_residuals(features)
-            if eval_backbone:
+
+            features = model.get_features(inputs)
+            residuals = model.get_residuals(features)
+            
+
+            if use_hsic:
                 hsic_loss = hsic_residuals(residuals, targets)
                 label_loss = hsic_features(features, targets)
                 # indep_loss = hsic_independence(residuals, targets)
@@ -146,15 +150,14 @@ def eval(
                 hsic_loss = -1
                 label_loss = -1
 
-            with torch.no_grad():
+            if use_cross_entropy:
                 logits = model.classify_residuals(residuals)
-            if eval_classifier:
                 ce_loss = cross_entropy(logits, targets)
                 loss += ce_loss
             else:
                 ce_loss = -1
 
-            if eval_classifier:
+            if use_cross_entropy:
                 preds = torch.argmax(logits, dim=-1)
                 correct = preds == targets
                 accuracy.update(correct.cpu())
