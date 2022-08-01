@@ -51,7 +51,7 @@ def train(
             label_loss = -1
         else:
             hsic_loss = hsic_residuals(residuals, targets)
-            label_loss = hsic_features(features, targets, num_classes=num_classes)
+            label_loss = hsic_features(features, model.class_prototypes, targets)
             indep_loss = hsic_independence(residuals, targets)
             loss += label_loss + indep_loss
 
@@ -130,7 +130,7 @@ def eval(
                 residuals = model.get_residuals(features)
             if eval_backbone:
                 hsic_loss = hsic_residuals(residuals, targets)
-                label_loss = hsic_features(features, targets, num_classes=num_classes)
+                label_loss = hsic_features(features, model.class_prototypes, targets)
                 indep_loss = hsic_independence(residuals, targets)
                 loss += label_loss + indep_loss
                 hsic_loss = hsic_loss.item()
