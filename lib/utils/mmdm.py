@@ -34,8 +34,7 @@ class MMDMOptim:
         self.model_optim = model_optim(params, lr=lr, **kwargs)
 
     def lagrangian(self, main_loss: torch.Tensor, constrained_loss: torch.Tensor) -> torch.Tensor:
-        print(constrained_loss)
-        damp = self.damping * (self.epsilon - constrained_loss.detach())
+        damp = self.damping * (self.epsilon - constrained_loss.item())
         return main_loss - (self.lambda_ - damp) * (self.epsilon - constrained_loss)
 
     def zero_grad(self):
