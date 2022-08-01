@@ -37,6 +37,10 @@ class MMDMOptim:
         damp = self.damping * (self.epsilon - constrained_loss.detach())
         return main_loss - (self.lambda_ - damp) * (self.epsilon - constrained_loss)
 
+    def zero_grad(self):
+        self.lambda_optim.zero_grad()
+        self.model_optim.zero_grad()
+
     def step(self):
         self.lambda_.weight.grad *= -1  # Gradient Ascent
         self.lambda_optim.step()
