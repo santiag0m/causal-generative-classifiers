@@ -58,7 +58,7 @@ def hsic_features(features: torch.tensor, targets: torch.tensor, num_classes: in
     batch, num_feats = features.shape
 
     targets = torch.nn.functional.one_hot(targets, num_classes=num_classes).float()
-    targets = targets.to(residuals.device)
+    targets = targets.to(features.device)
 
     if featurewise:
         loss = 0
