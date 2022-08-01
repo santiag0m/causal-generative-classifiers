@@ -179,7 +179,7 @@ def main(
     num_trials: int = 20,
     num_epochs: int = 20,
     batch_size: int = 32,
-    learning_rate: float = 1e-4,
+    learning_rate: float = 1e-1,
     only_cross_entropy: bool = False
 ):
     models = [
