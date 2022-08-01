@@ -43,7 +43,7 @@ def experiment(
     target_dataloader = DataLoader(target_dataset, batch_size=batch_size)
 
     # Setup Optimizer
-    optim = MMDMOptim(params=model.parameters(), lr=learning_rate, model_optim=torch.optim.SGD)
+    mmdm_optim = MMDMOptim(params=model.parameters(), lr=learning_rate, model_optim=torch.optim.SGD)
 
     # Fit class priors before training
     model.fit_class_probs(train_dataloader)
@@ -59,7 +59,7 @@ def experiment(
         train_loss, train_accuracy = train(
             model=model,
             dataloader=train_dataloader,
-            optim=optim,
+            mmdm_optim=mmdm_optim,
             use_pbar=verbose,
             train_classifier=only_cross_entropy,
             only_cross_entropy=only_cross_entropy
