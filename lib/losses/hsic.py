@@ -44,7 +44,7 @@ def hsic_prototypes(prototypes: torch.tensor, targets: torch.tensor, featurewise
     prototypes = prototypes[targets, :]  # Batch x Feats
 
     targets = torch.nn.functional.one_hot(targets, num_classes=num_classes).float()
-    targets = targets.to(residuals.device)
+    targets = targets.to(prototypes.device)
 
     if featurewise:
         loss = 0
