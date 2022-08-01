@@ -45,7 +45,7 @@ class MMDMOptim:
         self.model_optim.step()
 
         if self.lambda_.weight < 0:
-            self.lambda_.weight = 0
+            self.lambda_.weight = nn.Parameter(torch.tensor(0.))
 
     
 
