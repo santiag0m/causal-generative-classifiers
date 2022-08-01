@@ -54,6 +54,20 @@ def hsic_prototypes(prototypes: torch.tensor, targets: torch.tensor, featurewise
         loss -= HSIC(prototypes, targets)
     return loss
 
+def hsic_features(features: torch.tensor, targets: torch.tensor, num_classes: int=10, featurewise: bool = True) -> torch.Tensor:
+    batch, num_feats = features.shape
+
+    targets = torch.nn.functional.one_hot(targets, num_classes=num_classes).float()
+    targets = targets.to(features.device)
+
+    if featurewise:
+        loss = 0
+        for i in range(num_feats):
+            loss -= (1 / num_feats) * HSIC(features[:, [i]], targets)
+    else:
+        loss -= HSIC(features, targets)
+    return loss
+
 
 def hsic_independence(residuals: torch.tensor, targets: torch.tensor, featurewise: bool = True) -> torch.Tensor:
     batch, num_classes, num_feats = residuals.shape
