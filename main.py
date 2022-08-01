@@ -85,7 +85,7 @@ def experiment(
             train_loss, train_accuracy = train(
                 model=model,
                 dataloader=train_dataloader,
-                optim=optim,
+                mmdm_optim=mmdm_optim,
                 use_pbar=verbose,
                 train_backbone=False
             )
