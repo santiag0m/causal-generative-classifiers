@@ -66,7 +66,7 @@ def train(
             loss.backward()
             mmdm_optim.model_optim.step()
         else:
-            loss = mmdm_optim.lagrangian(main_loss=loss, constrained_loss=hsic_loss)
+            loss = mmdm_optim.lagrangian(main_loss=loss, constrained_loss=hsic_los, target_value=0.3)
             loss.backward()
             mmdm_optim.step()
 

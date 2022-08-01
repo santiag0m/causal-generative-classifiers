@@ -18,7 +18,6 @@ class MMDMOptim:
             self,
             params: Iterable[nn.Parameter],
             lr: float,
-            epsilon: float = 0,
             damping: float = 10.0,
             lambda_lr: float = 1.0,
             model_optim: Callable = torch.optim.SGD,
@@ -27,15 +26,14 @@ class MMDMOptim:
 
         device = next(params).device
 
-        self.epsilon = epsilon
         self.damping = damping
         self.lambda_ = Lambda().to(device)
         self.lambda_optim = torch.optim.SGD(self.lambda_.parameters(), lr=lambda_lr)
         self.model_optim = model_optim(params, lr=lr, **kwargs)
 
-    def lagrangian(self, main_loss: torch.Tensor, constrained_loss: torch.Tensor) -> torch.Tensor:
-        damp = self.damping * (self.epsilon - constrained_loss.detach())
-        return main_loss - (self.lambda_.weight - damp) * (self.epsilon - constrained_loss)
+    def lagrangian(self, main_loss: torch.Tensor, constrained_loss: torch.Tensor, target_value: float) -> torch.Tensor:
+        damp = self.damping * (target_value - constrained_loss.detach())
+        return main_loss - (self.lambda_.weight - damp) * (target_value - constrained_loss)
 
     def zero_grad(self):
         self.lambda_optim.zero_grad()
