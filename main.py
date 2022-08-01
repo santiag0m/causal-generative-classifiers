@@ -115,6 +115,8 @@ def experiment(
             model=model,
             dataloader=target_dataloader,
             use_pbar=verbose,
+            use_hsic=True,
+            use_cross_entropy=True
         )
 
     if verbose:
