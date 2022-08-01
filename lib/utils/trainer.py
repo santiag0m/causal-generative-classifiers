@@ -56,8 +56,8 @@ def train(
             hsic_loss = -1
             label_loss = -1
         else:
-            hsic_loss = hsic_residuals(residuals, targets)
-            label_loss = hsic_features(features, prototypes, targets)
+            hsic_loss = hsic_residuals(residuals, targets, featurewise=False)
+            label_loss = hsic_features(features, prototypes, targets, featurewise=False)
             # indep_loss = hsic_independence(residuals, targets)
             loss += label_loss # + indep_loss
             
