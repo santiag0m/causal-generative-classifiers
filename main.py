@@ -61,6 +61,7 @@ def experiment(
             dataloader=train_dataloader,
             mmdm_optim=mmdm_optim,
             use_pbar=verbose,
+            train_backbone=True,
             train_classifier=only_cross_entropy,
             only_cross_entropy=only_cross_entropy
         )
@@ -68,6 +69,7 @@ def experiment(
             model=model,
             dataloader=val_dataloader,
             use_pbar=verbose,
+            eval_backbone=True,
             eval_classifier=only_cross_entropy
         )
         train_history["hsic"].append(train_loss)
@@ -87,13 +89,15 @@ def experiment(
                 dataloader=train_dataloader,
                 mmdm_optim=mmdm_optim,
                 use_pbar=verbose,
-                train_backbone=False
+                train_backbone=False,
+                train_classifier=True,
             )
             val_loss, val_accuracy = eval(
                 model=model,
                 dataloader=val_dataloader,
                 use_pbar=verbose,
-                eval_backbone=False
+                eval_backbone=False,
+                eval_classifier=True,
             )
             train_history["cross_entropy"].append(train_loss)
             val_history["cross_entropy"].append(val_loss)
