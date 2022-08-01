@@ -21,7 +21,7 @@ class MMDMOptim:
             epsilon: float = 0,
             damping: float = 10.0,
             lambda_lr: float = 1.0,
-            model_optim: Callable = torch.optim.SGD
+            model_optim: Callable = torch.optim.SGD,
             **kwargs
         ):
 
