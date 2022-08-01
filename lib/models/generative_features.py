@@ -35,12 +35,16 @@ class GenerativeFeatures(nn.Module):
         self.fitted_class_probs = False
 
     def forward(self, x: torch.Tensor, detach_residual: bool = True) -> Tuple[torch.Tensor, torch.Tensor]:
-        residuals = self.get_residuals(x)
-        logits_y_x = self.classify_residuals(residuals, detach_residual)
-        return residuals, logits_y_x
+        z = self.get_features(x)
+        residuals = self.get_residuals(z)
+        logits_y_z = self.classify_residuals(residuals, detach_residual)
+        return residuals, logits_y_z
 
-    def get_residuals(self, x: torch.Tensor) -> torch.Tensor:
-        observed_features = self.backbone(x)  # (Batch, Features)
+    def get_features(self, x: torch.Tensor) -> torch.Tensor:
+        z = self.backbone(x)  # (Batch, Features)
+        return z
+
+    def get_residuals(self, observed_features: torch.Tensor) -> torch.Tensor:
         residuals = observed_features[:, None, :] - self.class_prototypes[None, ...]  # (Batch, Class, Features)
         return residuals
 
@@ -48,13 +52,13 @@ class GenerativeFeatures(nn.Module):
         if detach_residual:
             residuals = residuals.clone().detach()
         residuals = residuals.reshape(-1, self.hidden_dim)  # (Batch * Class, Features)
-        logits_x_y = self.residual_classifier(residuals)  # (Batch * Class, 1)
-        logits_x_y = logits_x_y.reshape(-1, self.num_classes)  # (Batch, Class)
-        logits_y_x = self.calculate_posterior(logits_x_y)
-        return logits_y_x
+        logits_z_y = self.residual_classifier(residuals)  # (Batch * Class, 1)
+        logits_z_y = logits_z_y.reshape(-1, self.num_classes)  # (Batch, Class)
+        logits_y_z = self.calculate_posterior(logits_z_y)
+        return logits_y_z
 
 
-    def calculate_posterior(self, logits_x_y: torch.Tensor) -> torch.Tensor:
+    def calculate_posterior(self, logits_z_y: torch.Tensor) -> torch.Tensor:
         if not self.fitted_class_probs:
             raise ValueError(
                 "Marginal class probabilities have not been estimated.\n"
@@ -62,14 +66,14 @@ class GenerativeFeatures(nn.Module):
                 )
         probs_y = torch.clamp(self.class_probs, min=self.eps, max=1-self.eps)  # (, Class)
         logits_y = torch.logit(probs_y[None, ...])  # (1, Class)
-        logits_y = torch.broadcast_to(logits_y, logits_x_y.shape)  # (Batch, Class)
-        logits_joint = multiply_probs_with_logits(logits_x_y, logits_y)  # (Batch, Class)
+        logits_y = torch.broadcast_to(logits_y, logits_z_y.shape)  # (Batch, Class)
+        logits_joint = multiply_probs_with_logits(logits_z_y, logits_y)  # (Batch, Class)
         probs_joint = torch.sigmoid(logits_joint)
-        probs_x = torch.sum(probs_joint, dim=-1, keepdim=True)  # (Batch, 1)
-        logits_x = torch.logit(probs_x)
-        logits_x = torch.broadcast_to(logits_x, logits_joint.shape)  # (Batch, Class)
-        logits_y_x = divide_probs_with_logits(logits_joint, logits_x)
-        return logits_y_x
+        probs_z = torch.sum(probs_joint, dim=-1, keepdim=True)  # (Batch, 1)
+        logits_z = torch.logit(probs_z)
+        logits_z = torch.broadcast_to(logits_z, logits_joint.shape)  # (Batch, Class)
+        logits_y_z = divide_probs_with_logits(logits_joint, logits_z)
+        return logits_y_z
 
     def fit_class_probs(self, dataloader: DataLoader):
         total = 0
