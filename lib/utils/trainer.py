@@ -60,7 +60,7 @@ def train(
             hsic_loss = hsic_residuals(residuals, targets)
             label_loss = hsic_features(features, targets)
             indep_loss = hsic_independence(residuals, targets)
-            loss += label_loss # + indep_loss
+            loss += label_loss
         else:
             hsic_loss = -1
             label_loss = -1
@@ -75,7 +75,7 @@ def train(
             ce_loss = -1
 
         if use_hsic:
-            loss = mmdm_optim.lagrangian(main_loss=loss, constrained_loss=0*loss, target_value=0)
+            loss = mmdm_optim.lagrangian(main_loss=label_loss, constrained_loss=hsic_loss, target_value=0)
             loss.backward()
             mmdm_optim.step()
 
@@ -149,7 +149,7 @@ def eval(
                 hsic_loss = hsic_residuals(residuals, targets)
                 label_loss = hsic_features(features, targets)
                 indep_loss = hsic_independence(residuals, targets)
-                loss += label_loss # + indep_loss
+                loss += label_loss
                 hsic_loss = hsic_loss.item()
                 label_loss = label_loss.item()
                 indep_loss = indep_loss.item()

@@ -26,7 +26,7 @@ class GenerativeFeatures(nn.Module):
         )
         self.residual_classifier = nn.Sequential(
             *[nn.Linear(self.hidden_dim, self.hidden_dim),
-            nn.ReLU()]*3,
+            nn.ReLU()]*1,
             nn.Linear(self.hidden_dim, 1)
         )
         self.class_probs = nn.Parameter(
