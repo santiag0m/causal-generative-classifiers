@@ -51,7 +51,7 @@ def hsic_prototypes(prototypes: torch.tensor, targets: torch.tensor, featurewise
         for i in range(num_feats):
             loss -= (1 / num_feats) * HSIC(prototypes[:, [i]], targets)
     else:
-        loss -= HSIC(prototypes, targets)
+        loss = -1 * HSIC(prototypes, targets)
     return loss
 
 def hsic_features(features: torch.tensor, prototypes: torch.Tensor, targets: torch.tensor, featurewise: bool = True) -> torch.Tensor:
@@ -64,7 +64,7 @@ def hsic_features(features: torch.tensor, prototypes: torch.Tensor, targets: tor
         for i in range(num_feats):
             loss -= (1 / num_feats) * HSIC(features[:, [i]], prototypes[:, [i]])
     else:
-        loss -= HSIC(features, prototypes)
+        loss = -1 * HSIC(features, prototypes)
     return loss
 
 
