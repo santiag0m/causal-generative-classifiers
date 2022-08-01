@@ -25,10 +25,8 @@ class GenerativeFeatures(nn.Module):
             torch.randn((self.num_classes, self.hidden_dim))
         )
         self.residual_classifier = nn.Sequential(
-            nn.Linear(self.hidden_dim, self.hidden_dim),
-            nn.ReLU(),
-            nn.Linear(self.hidden_dim, self.hidden_dim),
-            nn.ReLU(),
+            *[nn.Linear(self.hidden_dim, self.hidden_dim),
+            nn.ReLU()]*3,
             nn.Linear(self.hidden_dim, 1)
         )
         self.class_probs = nn.Parameter(
