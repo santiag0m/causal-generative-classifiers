@@ -6,8 +6,9 @@ from tqdm import tqdm
 from torch.utils.data import DataLoader
 from torch.nn.functional import cross_entropy
 
-from lib.losses.hsic import HSIC, hsic_one_hot
 from .running_average import RunningAverage
+from lib.losses.hsic import HSIC, hsic_residuals, hsic_prototypes, hsic_independence
+
 
 def train(
     *,
@@ -47,18 +48,9 @@ def train(
             hsic_loss = -1
             label_loss = -1
         else:
-            hsic_loss = hsic_one_hot(residuals, targets)
-            mapped_feats = model.class_prototypes[targets, :]
-
-            num_feats = mapped_feats.shape[1]
-            label_loss = 0
-            for i in range(num_feats):
-                label_loss -= (1 / num_feats) * HSIC(
-                        mapped_feats[:, [i]],
-                        torch.nn.functional.one_hot(
-                            targets, num_classes=num_classes
-                        ).float(),
-                    )
+            hsic_loss = hsic_residuals(residuals, targets)
+            label_loss = hsic_prototypes(model.class_prototypes, targets)
+            indep_loss = hsic_independence(residuals, targets)
             loss += hsic_loss + label_loss
             hsic_loss = hsic_loss.item()
             label_loss = label_loss.item()
@@ -128,18 +120,10 @@ def eval(
             with torch.no_grad():
                 residuals = model.get_residuals(inputs)
             if eval_backbone:
-                hsic_loss = hsic_one_hot(residuals, targets)
-                mapped_feats = model.class_prototypes[targets, :]
-                num_feats = mapped_feats.shape[1]
-                label_loss = 0
-                for i in range(num_feats):
-                    label_loss -= (1 / num_feats) * HSIC(
-                            mapped_feats[:, [i]],
-                            torch.nn.functional.one_hot(
-                                targets, num_classes=num_classes
-                            ).float(),
-                        )
-                loss = hsic_loss + label_loss
+                hsic_loss = hsic_residuals(residuals, targets)
+                label_loss = hsic_prototypes(model.class_prototypes, targets)
+                indep_loss = hsic_independence(residuals, targets)
+                loss += hsic_loss + label_loss
                 hsic_loss = hsic_loss.item()
                 label_loss = label_loss.item()
             else:

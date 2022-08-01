@@ -24,22 +24,58 @@ def HSIC(x, y, s_x=1, s_y=1):
     HSIC = torch.trace(torch.mm(L, torch.mm(H, torch.mm(K, H)))) / ((m - 1) ** 2)
     return HSIC
 
-def hsic_one_hot(residuals: torch.tensor, targets: torch.tensor) -> torch.Tensor:
-    batch, num_classes, hidden_dim = residuals.shape
-    # Select only class residuals for independence
-    index = torch.reshape(targets, (batch, 1, 1))
-    index = torch.broadcast_to(index, size=(batch, 1, hidden_dim))
-    residuals = torch.gather(residuals, dim=1, index=index)[:, 0, :]
+def hsic_residuals(residuals: torch.tensor, targets: torch.tensor, featurewise: bool = True) -> torch.Tensor:
+    batch, num_classes, num_feats = residuals.shape
+    residuals = _index_residuals(residuals, targets)
 
     targets = torch.nn.functional.one_hot(targets, num_classes=num_classes).float()
     targets = targets.to(residuals.device)
 
-    loss = 0
-    num_features = residuals.shape[-1]
-    for i in range(num_features):
-        excluded = [j for j in range(num_features) if j != i]
-        loss += HSIC(residuals[:, [i]], targets)
-        loss += HSIC(residuals[:, [i]], residuals[:, excluded])
-
-    #loss = HSIC(residuals, targets)
+    if featurewise:
+        loss = 0
+        for i in range(num_feats):
+            loss += HSIC(residuals[:, [i]], targets)
+    else:
+        loss = HSIC(residuals, targets)
     return loss
+
+def hsic_prototypes(prototypes: torch.tensor, targets: torch.tensor, featurewise: bool = True) -> torch.Tensor:
+    num_classes, num_feats = prototypes.shape
+    prototypes = prototypes[targets, :]  # Batch x Feats
+
+    targets = torch.nn.functional.one_hot(targets, num_classes=num_classes).float()
+    targets = targets.to(residuals.device)
+
+    if featurewise:
+        loss = 0
+        for i in range(num_feats):
+            loss -= (1 / num_feats) * HSIC(mapped_feats[:, [i]], targets)
+    else:
+        loss -= HSIC(prototypes, targets)
+    return loss
+
+
+def hsic_independence(residuals: torch.tensor, targets: torch.tensor, featurewise: bool = True) -> torch.Tensor:
+    batch, num_classes, num_feats = residuals.shape
+    residuals = _index_residuals(residuals, targets)
+
+    targets = torch.nn.functional.one_hot(targets, num_classes=num_classes).float()
+    targets = targets.to(residuals.device)
+
+    if featurewise:
+        loss = 0
+        for i in range(num_feats):
+            excluded = [j for j in range(num_feats) if j != i]
+            loss += HSIC(residuals[:, [i]], residuals[:, excluded])
+    else:
+        loss = HSIC(residuals, targets)
+    return loss
+
+def _index_residuals(residuals: torch.tensor, targets: torch.tensor) -> torch.Tensor:
+    batch, num_classes, num_feats = residuals.shape
+    
+    # Select only class residuals for independence
+    index = torch.reshape(targets, (batch, 1, 1))
+    index = torch.broadcast_to(index, size=(batch, 1, num_feats))
+    residuals = torch.gather(residuals, dim=1, index=index)[:, 0, :]
+    return residuals
