@@ -75,7 +75,7 @@ def train(
             ce_loss = -1
 
         if use_hsic:
-            loss = mmdm_optim.lagrangian(main_loss=loss, constrained_loss=hsic_loss+indep_loss, target_value=0)
+            loss = mmdm_optim.lagrangian(main_loss=loss, constrained_loss=0*loss, target_value=0)
             loss.backward()
             mmdm_optim.step()
 
