@@ -126,6 +126,7 @@ def eval(
     cum_loss = 0
     cum_hsic_loss = 0
     cum_label_loss = 0
+    cum_indep_loss = 0
     cum_ce_loss = 0
     if use_pbar:
         pbar = tqdm(enumerate(dataloader), total=len(dataloader))
@@ -151,9 +152,11 @@ def eval(
                 loss += label_loss # + indep_loss
                 hsic_loss = hsic_loss.item()
                 label_loss = label_loss.item()
+                indep_loss = indep_loss.item()
             else:
                 hsic_loss = -1
                 label_loss = -1
+                indep_loss = -1
 
             if use_cross_entropy:
                 logits = model.classify_residuals(residuals)
@@ -173,11 +176,13 @@ def eval(
             cum_loss += loss.item()
             cum_hsic_loss += hsic_loss
             cum_label_loss += label_loss
+            cum_indep_loss += indep_loss
             cum_ce_loss += ce_loss
 
             avg_loss = cum_loss / (idx + 1)
             avg_hsic_loss = cum_hsic_loss / (idx + 1)
             avg_label_loss = cum_label_loss / (idx + 1)
+            avg_indep_loss = cum_indep_loss / (idx + 1)
             avg_ce_loss = cum_ce_loss / (idx + 1)
 
             if use_pbar:
