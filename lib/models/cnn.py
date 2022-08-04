@@ -25,5 +25,5 @@ class CNNBackbone(nn.Module):
         x = self.relu(self.conv_2(x))
         x = self.pool(x)
         x = torch.flatten(x, start_dim=1)
-        x = self.relu(self.fc_1(x))
+        x = self.fc_1(x)
         return x
