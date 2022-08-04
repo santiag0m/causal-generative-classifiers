@@ -61,8 +61,6 @@ def experiment(
             dataloader=train_dataloader,
             mmdm_optim=mmdm_optim,
             use_pbar=verbose,
-            train_backbone=True,
-            train_classifier=True,
             use_hsic=not only_cross_entropy,
             
         )

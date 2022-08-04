@@ -18,8 +18,6 @@ def train(
     mmdm_optim: MMDMOptim,
     use_pbar: bool = False,
     num_classes: int = 10,
-    train_backbone: bool = True,
-    train_classifier: bool = True,
     use_hsic: bool = True,
 ) -> float:
     model.train()
@@ -46,14 +44,7 @@ def train(
         features = model.get_features(inputs)
         prototypes = model.class_prototypes
         residuals = model.get_residuals(features)
-
-        if not train_backbone:
-            features = features.detach()
-            prototypes = prototypes.detach()
-            residuals = residuals.detach()
-
-        if train_classifier:
-            logits = model.classify_residuals(residuals)
+        logits = model.classify_residuals(residuals)
 
         if use_hsic:
             hsic_loss = hsic_residuals(residuals, targets)
