@@ -46,6 +46,8 @@ def train(
         residuals = model.get_residuals(features)
         logits = model.classify_residuals(residuals)
 
+        ce_loss = cross_entropy(logits, targets)
+        
         if use_hsic:
             hsic_loss = hsic_residuals(residuals, targets)
             label_loss = hsic_features(features, targets)
@@ -56,8 +58,6 @@ def train(
             indep_loss = -1
             
 
-            ce_loss = cross_entropy(logits, targets)
-            ce_loss = ce_loss.item()
 
         if use_hsic:
             loss = mmdm_optim.lagrangian(main_loss=ce_loss, constrained_loss=hsic_loss, target_value=0)
@@ -71,6 +71,8 @@ def train(
             loss = ce_loss
             loss.backward()
             mmdm_optim.model_optim.step()
+            
+            ce_loss = ce_loss.item()
 
 
         preds = torch.argmax(logits, dim=-1)
