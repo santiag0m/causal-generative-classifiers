@@ -150,7 +150,7 @@ def plot_results(df: pd.DataFrame, title: str = ""):
 def main(
     num_trials: int = 20,
     num_epochs: int = 20,
-    batch_size: int = 32,
+    batch_size: int = 256,
     learning_rate: float = 1e-3,
     only_cross_entropy: bool = False
 ):
