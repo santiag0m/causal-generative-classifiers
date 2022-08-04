@@ -21,7 +21,6 @@ def train(
     train_backbone: bool = True,
     train_classifier: bool = True,
     use_hsic: bool = True,
-    use_cross_entropy: bool = False
 ) -> float:
     model.train()
     device = next(model.parameters()).device
@@ -60,22 +59,17 @@ def train(
             hsic_loss = hsic_residuals(residuals, targets)
             label_loss = hsic_features(features, targets)
             indep_loss = hsic_independence(residuals, targets)
-            loss += label_loss
         else:
             hsic_loss = -1
             label_loss = -1
             indep_loss = -1
             
 
-        if use_cross_entropy:
             ce_loss = cross_entropy(logits, targets)
-            loss += ce_loss
             ce_loss = ce_loss.item()
-        else:
-            ce_loss = -1
 
         if use_hsic:
-            loss = mmdm_optim.lagrangian(main_loss=label_loss, constrained_loss=hsic_loss, target_value=0)
+            loss = mmdm_optim.lagrangian(main_loss=ce_loss, constrained_loss=hsic_loss, target_value=0)
             loss.backward()
             mmdm_optim.step()
 
@@ -83,16 +77,15 @@ def train(
             label_loss = label_loss.item()
             indep_loss = indep_loss.item()
         else:
+            loss = ce_loss
             loss.backward()
             mmdm_optim.model_optim.step()
 
-        if use_cross_entropy:
-            preds = torch.argmax(logits, dim=-1)
-            correct = preds == targets
-            accuracy.update(correct.cpu())
-            avg_acc = accuracy.value
-        else:
-            avg_acc = -1
+
+        preds = torch.argmax(logits, dim=-1)
+        correct = preds == targets
+        accuracy.update(correct.cpu())
+        avg_acc = accuracy.value
 
         cum_loss += loss.item()
         cum_hsic_loss += hsic_loss
@@ -118,7 +111,6 @@ def eval(
     use_pbar: bool = False,
     num_classes: int = 10,
     use_hsic: bool = True,
-    use_cross_entropy: bool = False,
 ) -> float:
     model.eval()
     device = next(model.parameters()).device
@@ -158,20 +150,14 @@ def eval(
                 label_loss = -1
                 indep_loss = -1
 
-            if use_cross_entropy:
-                logits = model.classify_residuals(residuals)
-                ce_loss = cross_entropy(logits, targets)
-                loss += ce_loss
-            else:
-                ce_loss = -1
+            logits = model.classify_residuals(residuals)
+            ce_loss = cross_entropy(logits, targets)
+            loss += ce_loss
 
-            if use_cross_entropy:
-                preds = torch.argmax(logits, dim=-1)
-                correct = preds == targets
-                accuracy.update(correct.cpu())
-                avg_acc = accuracy.value
-            else:
-                avg_acc = -1
+            preds = torch.argmax(logits, dim=-1)
+            correct = preds == targets
+            accuracy.update(correct.cpu())
+            avg_acc = accuracy.value
 
             cum_loss += loss.item()
             cum_hsic_loss += hsic_loss
