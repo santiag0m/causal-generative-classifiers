@@ -47,7 +47,7 @@ def train(
         logits = model.classify_residuals(residuals)
 
         ce_loss = cross_entropy(logits, targets)
-        
+
         if use_hsic:
             hsic_loss = hsic_residuals(residuals, targets)
             label_loss = hsic_features(features, targets)
@@ -56,11 +56,11 @@ def train(
             hsic_loss = -1
             label_loss = -1
             indep_loss = -1
-            
-
 
         if use_hsic:
-            loss = mmdm_optim.lagrangian(main_loss=ce_loss, constrained_loss=hsic_loss, target_value=0)
+            loss = mmdm_optim.lagrangian(
+                main_loss=ce_loss, constrained_loss=hsic_loss, target_value=0
+            )
             loss.backward()
             mmdm_optim.step()
 
@@ -71,9 +71,8 @@ def train(
             loss = ce_loss
             loss.backward()
             mmdm_optim.model_optim.step()
-            
-            ce_loss = ce_loss.item()
 
+            ce_loss = ce_loss.item()
 
         preds = torch.argmax(logits, dim=-1)
         correct = preds == targets
@@ -93,8 +92,10 @@ def train(
         avg_ce_loss = cum_ce_loss / (idx + 1)
 
         if use_pbar:
-            pbar.set_description(f"{avg_hsic_loss=:.3f} {avg_label_loss=:.3f} {avg_indep_loss=:.3f} {avg_ce_loss=:.3f} {avg_acc=:.3f}")
-    return avg_loss, avg_acc
+            pbar.set_description(
+                f"{avg_hsic_loss=:.3f} {avg_label_loss=:.3f} {avg_indep_loss=:.3f} {avg_ce_loss=:.3f} {avg_acc=:.3f}"
+            )
+    return avg_loss, avg_acc.item()
 
 
 def eval(
@@ -107,7 +108,7 @@ def eval(
 ) -> float:
     model.eval()
     device = next(model.parameters()).device
-    
+
     cum_loss = 0
     cum_hsic_loss = 0
     cum_label_loss = 0
@@ -128,7 +129,6 @@ def eval(
 
             features = model.get_features(inputs)
             residuals = model.get_residuals(features)
-            
 
             if use_hsic:
                 hsic_loss = hsic_residuals(residuals, targets)
@@ -165,5 +165,7 @@ def eval(
             avg_ce_loss = cum_ce_loss / (idx + 1)
 
             if use_pbar:
-                pbar.set_description(f"[VAL] {avg_hsic_loss=:.3f} {avg_label_loss=:.3f} {avg_indep_loss=:.3f} {avg_ce_loss=:.3f} {avg_acc=:.3f}")
-    return avg_loss, avg_acc
+                pbar.set_description(
+                    f"[VAL] {avg_hsic_loss=:.3f} {avg_label_loss=:.3f} {avg_indep_loss=:.3f} {avg_ce_loss=:.3f} {avg_acc=:.3f}"
+                )
+    return avg_loss, avg_acc.item()
