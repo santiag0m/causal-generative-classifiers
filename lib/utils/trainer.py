@@ -8,7 +8,7 @@ from torch.nn.functional import cross_entropy
 
 from .mmdm import MMDMOptim
 from .running_average import RunningAverage
-from lib.losses.hsic import HSIC, hsic_residuals, hsic_features, hsic_independence
+from lib.losses.hsic import hsic_residuals
 
 
 def train(
@@ -17,7 +17,6 @@ def train(
     dataloader: DataLoader,
     mmdm_optim: MMDMOptim,
     use_pbar: bool = False,
-    num_classes: int = 10,
     use_hsic: bool = True,
 ) -> float:
     model.train()
@@ -25,8 +24,6 @@ def train(
 
     cum_loss = 0
     cum_hsic_loss = 0
-    cum_label_loss = 0
-    cum_indep_loss = 0
     cum_ce_loss = 0
     if use_pbar:
         pbar = tqdm(enumerate(dataloader), total=len(dataloader))
@@ -42,7 +39,6 @@ def train(
         loss = 0
 
         features = model.get_features(inputs)
-        prototypes = model.class_prototypes
         residuals = model.get_residuals(features)
         logits = model.classify_residuals(residuals)
 
@@ -50,12 +46,8 @@ def train(
 
         if use_hsic:
             hsic_loss = hsic_residuals(residuals, targets)
-            label_loss = hsic_features(features, targets)
-            indep_loss = hsic_independence(residuals, targets)
         else:
             hsic_loss = -1
-            label_loss = -1
-            indep_loss = -1
 
         if use_hsic:
             loss = mmdm_optim.lagrangian(
@@ -65,8 +57,6 @@ def train(
             mmdm_optim.step()
 
             hsic_loss = hsic_loss.item()
-            label_loss = label_loss.item()
-            indep_loss = indep_loss.item()
         else:
             loss = ce_loss
             loss.backward()
@@ -81,19 +71,15 @@ def train(
 
         cum_loss += loss.item()
         cum_hsic_loss += hsic_loss
-        cum_label_loss += label_loss
-        cum_indep_loss += indep_loss
         cum_ce_loss += ce_loss
 
         avg_loss = cum_loss / (idx + 1)
         avg_hsic_loss = cum_hsic_loss / (idx + 1)
-        avg_label_loss = cum_label_loss / (idx + 1)
-        avg_indep_loss = cum_indep_loss / (idx + 1)
         avg_ce_loss = cum_ce_loss / (idx + 1)
 
         if use_pbar:
             pbar.set_description(
-                f"{avg_hsic_loss=:.3f} {avg_label_loss=:.3f} {avg_indep_loss=:.3f} {avg_ce_loss=:.3f} {avg_acc=:.3f}"
+                f"{avg_hsic_loss=:.3f} {avg_ce_loss=:.3f} {avg_acc=:.3f}"
             )
     return avg_loss, avg_acc.item()
 
@@ -111,8 +97,6 @@ def eval(
 
     cum_loss = 0
     cum_hsic_loss = 0
-    cum_label_loss = 0
-    cum_indep_loss = 0
     cum_ce_loss = 0
     if use_pbar:
         pbar = tqdm(enumerate(dataloader), total=len(dataloader))
@@ -129,21 +113,14 @@ def eval(
 
             features = model.get_features(inputs)
             residuals = model.get_residuals(features)
+            logits = model.classify_residuals(residuals)
 
             if use_hsic:
                 hsic_loss = hsic_residuals(residuals, targets)
-                label_loss = hsic_features(features, targets)
-                indep_loss = hsic_independence(residuals, targets)
-                loss += label_loss
                 hsic_loss = hsic_loss.item()
-                label_loss = label_loss.item()
-                indep_loss = indep_loss.item()
             else:
                 hsic_loss = -1
-                label_loss = -1
-                indep_loss = -1
 
-            logits = model.classify_residuals(residuals)
             ce_loss = cross_entropy(logits, targets)
             loss += ce_loss
 
@@ -154,18 +131,14 @@ def eval(
 
             cum_loss += loss.item()
             cum_hsic_loss += hsic_loss
-            cum_label_loss += label_loss
-            cum_indep_loss += indep_loss
             cum_ce_loss += ce_loss
 
             avg_loss = cum_loss / (idx + 1)
             avg_hsic_loss = cum_hsic_loss / (idx + 1)
-            avg_label_loss = cum_label_loss / (idx + 1)
-            avg_indep_loss = cum_indep_loss / (idx + 1)
             avg_ce_loss = cum_ce_loss / (idx + 1)
 
             if use_pbar:
                 pbar.set_description(
-                    f"[VAL] {avg_hsic_loss=:.3f} {avg_label_loss=:.3f} {avg_indep_loss=:.3f} {avg_ce_loss=:.3f} {avg_acc=:.3f}"
+                    f"[VAL] {avg_hsic_loss=:.3f} {avg_ce_loss=:.3f} {avg_acc=:.3f}"
                 )
     return avg_loss, avg_acc.item()
