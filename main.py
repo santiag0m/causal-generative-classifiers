@@ -78,8 +78,8 @@ def experiment(
         )
         train_history["hsic"].append(train_hsic_loss)
         val_history["hsic"].append(val_hsic_loss)
-        train_history["ce"].append(train_ce_loss)
-        val_history["ce"].append(val_ce_loss)
+        train_history["cross_entropy"].append(train_ce_loss)
+        val_history["cross_entropy"].append(val_ce_loss)
 
         if val_accuracy <= best_loss:
             torch.save(model.state_dict(), "./best.pth")
@@ -108,7 +108,7 @@ def experiment(
 
 
 def multiple_trials(experiment_config: Dict, num_trials: int) -> Dict:
-    if os.is_dir(TRIAL_FOLDER):
+    if os.path.isdir(TRIAL_FOLDER):
         shutil.rmtree(TRIAL_FOLDER)
     os.makedirs(TRIAL_FOLDER)
 
@@ -117,7 +117,7 @@ def multiple_trials(experiment_config: Dict, num_trials: int) -> Dict:
         print(f"Experiment {i+1}/{num_trials}")
         trial_results = experiment(**experiment_config)
         results.append(trial_results)
-        with open(os.path.join(TRIAL_FOLDER, f"trial_{i:03d}")) as f:
+        with open(os.path.join(TRIAL_FOLDER, f"trial_{i:03d}.json"), "w") as f:
             json.dump(results, f)
 
     train_accuracy = [trial["train_accuracy"] for trial in results]
