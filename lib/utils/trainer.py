@@ -22,7 +22,6 @@ def train(
     model.train()
     device = next(model.parameters()).device
 
-    cum_loss = 0
     cum_hsic_loss = 0
     cum_ce_loss = 0
     if use_pbar:
@@ -36,8 +35,6 @@ def train(
         inputs = inputs.to(device)
         targets = targets.to(device)
 
-        loss = 0
-
         features = model.get_features(inputs)
         residuals = model.get_residuals(features)
         logits = model.classify_residuals(residuals)
@@ -45,7 +42,7 @@ def train(
         ce_loss = cross_entropy(logits, targets)
 
         if use_hsic:
-            hsic_loss = hsic_residuals(residuals, targets)
+            hsic_loss = hsic_residuals(residuals, targets, featurewise=False)
         else:
             hsic_loss = -1
 
@@ -58,10 +55,8 @@ def train(
 
             hsic_loss = hsic_loss.item()
         else:
-            loss = ce_loss
-            loss.backward()
+            ce_loss.backward()
             mmdm_optim.model_optim.step()
-
             ce_loss = ce_loss.item()
 
         preds = torch.argmax(logits, dim=-1)
@@ -69,11 +64,9 @@ def train(
         accuracy.update(correct.cpu())
         avg_acc = accuracy.value
 
-        cum_loss += loss.item()
         cum_hsic_loss += hsic_loss
         cum_ce_loss += ce_loss
 
-        avg_loss = cum_loss / (idx + 1)
         avg_hsic_loss = cum_hsic_loss / (idx + 1)
         avg_ce_loss = cum_ce_loss / (idx + 1)
 
@@ -81,7 +74,7 @@ def train(
             pbar.set_description(
                 f"{avg_hsic_loss=:.3f} {avg_ce_loss=:.3f} {avg_acc=:.3f}"
             )
-    return avg_loss, avg_acc.item()
+    return avg_hsic_loss, avg_ce_loss, avg_acc.item()
 
 
 def eval(
@@ -89,13 +82,11 @@ def eval(
     model: nn.Module,
     dataloader: DataLoader,
     use_pbar: bool = False,
-    num_classes: int = 10,
     use_hsic: bool = True,
 ) -> float:
     model.eval()
     device = next(model.parameters()).device
 
-    cum_loss = 0
     cum_hsic_loss = 0
     cum_ce_loss = 0
     if use_pbar:
@@ -109,8 +100,6 @@ def eval(
             inputs = inputs.to(device)
             targets = targets.to(device)
 
-            loss = 0
-
             features = model.get_features(inputs)
             residuals = model.get_residuals(features)
             logits = model.classify_residuals(residuals)
@@ -122,18 +111,15 @@ def eval(
                 hsic_loss = -1
 
             ce_loss = cross_entropy(logits, targets)
-            loss += ce_loss
 
             preds = torch.argmax(logits, dim=-1)
             correct = preds == targets
             accuracy.update(correct.cpu())
             avg_acc = accuracy.value
 
-            cum_loss += loss.item()
             cum_hsic_loss += hsic_loss
             cum_ce_loss += ce_loss
 
-            avg_loss = cum_loss / (idx + 1)
             avg_hsic_loss = cum_hsic_loss / (idx + 1)
             avg_ce_loss = cum_ce_loss / (idx + 1)
 
@@ -141,4 +127,4 @@ def eval(
                 pbar.set_description(
                     f"[VAL] {avg_hsic_loss=:.3f} {avg_ce_loss=:.3f} {avg_acc=:.3f}"
                 )
-    return avg_loss, avg_acc.item()
+    return avg_hsic_loss, avg_ce_loss, avg_acc.item()
