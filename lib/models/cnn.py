@@ -3,7 +3,7 @@ import torch.nn as nn
 
 
 class CNNBackbone(nn.Module):
-    def __init__(self, in_channels: int = 1, out_features: int = 16):
+    def __init__(self, in_channels: int = 1, out_features: int = 10):
         super().__init__()
 
         self.out_features = out_features
@@ -14,7 +14,8 @@ class CNNBackbone(nn.Module):
         self.conv_2 = nn.Conv2d(
             in_channels=32, out_channels=64, kernel_size=3, stride=1, padding=1
         )
-        self.fc_1 = nn.Linear(in_features=7 * 7 * 64, out_features=self.out_features)
+        self.fc_1 = nn.Linear(in_features=7 * 7 * 64, out_features=524)
+        self.fc_2 = nn.Linear(in_features=524, out_features=self.out_features)
 
         self.relu = nn.ReLU()
         self.pool = nn.MaxPool2d(kernel_size=2, stride=2)
@@ -26,4 +27,5 @@ class CNNBackbone(nn.Module):
         x = self.pool(x)
         x = torch.flatten(x, start_dim=1)
         x = self.relu(self.fc_1(x))
+        x = self.fc_2(x)
         return x
