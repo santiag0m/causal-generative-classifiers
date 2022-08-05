@@ -54,6 +54,7 @@ def train(
             mmdm_optim.step()
 
             hsic_loss = hsic_loss.item()
+            ce_loss = ce_loss.item()
         else:
             ce_loss.backward()
             mmdm_optim.model_optim.step()
@@ -105,12 +106,11 @@ def eval(
             logits = model.classify_residuals(residuals)
 
             if use_hsic:
-                hsic_loss = hsic_residuals(residuals, targets)
-                hsic_loss = hsic_loss.item()
+                hsic_loss = hsic_residuals(residuals, targets).item()
             else:
                 hsic_loss = -1
 
-            ce_loss = cross_entropy(logits, targets)
+            ce_loss = cross_entropy(logits, targets).item()
 
             preds = torch.argmax(logits, dim=-1)
             correct = preds == targets
