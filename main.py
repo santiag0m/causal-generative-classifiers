@@ -1,3 +1,6 @@
+import os
+import json
+import shutil
 from typing import List, Dict
 
 import torch
@@ -16,6 +19,8 @@ from lib.models import get_backbone, GenerativeFeatures
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 NUM_CLASSES = 10
+
+TRIAL_FOLDER = "trial_results"
 
 
 def experiment(
@@ -58,28 +63,30 @@ def experiment(
     for epoch_idx in range(num_epochs):
         if verbose:
             print(f"\nEpoch {epoch_idx}")
-        train_loss, train_accuracy = train(
+        train_hsic_loss, train_ce_loss, train_accuracy = train(
             model=model,
             dataloader=train_dataloader,
             mmdm_optim=mmdm_optim,
             use_pbar=verbose,
             use_hsic=not only_cross_entropy,
         )
-        val_loss, val_accuracy = eval(
+        val_hsic_loss, val_ce_loss, val_accuracy = eval(
             model=model,
             dataloader=val_dataloader,
             use_pbar=verbose,
             use_hsic=not only_cross_entropy,
         )
-        train_history["hsic"].append(train_loss)
-        val_history["hsic"].append(val_loss)
+        train_history["hsic"].append(train_hsic_loss)
+        val_history["hsic"].append(val_hsic_loss)
+        train_history["ce"].append(train_ce_loss)
+        val_history["ce"].append(val_ce_loss)
 
-        if val_loss <= best_loss:
+        if val_accuracy <= best_loss:
             torch.save(model.state_dict(), "./best.pth")
-            best_loss = val_loss
+            best_loss = val_accuracy
 
     # Check accuracy
-    target_loss, target_accuracy = eval(
+    target_hsic_loss, target_ce_loss, target_accuracy = eval(
         model=model,
         dataloader=target_dataloader,
         use_pbar=verbose,
@@ -101,11 +108,17 @@ def experiment(
 
 
 def multiple_trials(experiment_config: Dict, num_trials: int) -> Dict:
+    if os.is_dir(TRIAL_FOLDER):
+        shutil.rmtree(TRIAL_FOLDER)
+    os.makedirs(TRIAL_FOLDER)
+
     results = []
     for i in range(num_trials):
         print(f"Experiment {i+1}/{num_trials}")
         trial_results = experiment(**experiment_config)
         results.append(trial_results)
+        with open(os.path.join(TRIAL_FOLDER, f"trial_{i:03d}")) as f:
+            json.dump(results, f)
 
     train_accuracy = [trial["train_accuracy"] for trial in results]
     val_accuracy = [trial["val_accuracy"] for trial in results]
