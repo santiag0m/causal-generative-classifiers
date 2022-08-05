@@ -43,7 +43,9 @@ def experiment(
     target_dataloader = DataLoader(target_dataset, batch_size=batch_size)
 
     # Setup Optimizer
-    mmdm_optim = MMDMOptim(params=model.parameters(), lr=learning_rate, model_optim=torch.optim.SGD)
+    mmdm_optim = MMDMOptim(
+        params=model.parameters(), lr=learning_rate, model_optim=torch.optim.SGD
+    )
 
     # Fit class priors before training
     model.fit_class_probs(train_dataloader)
@@ -62,7 +64,6 @@ def experiment(
             mmdm_optim=mmdm_optim,
             use_pbar=verbose,
             use_hsic=not only_cross_entropy,
-            
         )
         val_loss, val_accuracy = eval(
             model=model,
@@ -79,11 +80,11 @@ def experiment(
 
     # Check accuracy
     target_loss, target_accuracy = eval(
-            model=model,
-            dataloader=target_dataloader,
-            use_pbar=verbose,
-            use_hsic=True,
-        )
+        model=model,
+        dataloader=target_dataloader,
+        use_pbar=verbose,
+        use_hsic=True,
+    )
 
     if verbose:
         print(f"{train_accuracy=:.4f}, {val_accuracy=:.4f}, {target_accuracy=:.4f}\n")
@@ -111,9 +112,13 @@ def multiple_trials(experiment_config: Dict, num_trials: int) -> Dict:
     target_accuracy = [trial["target_accuracy"] for trial in results]
 
     results = {
-        "train": pd.Series(train_accuracy).fillna(0).rename(experiment_config["model_name"]),
+        "train": pd.Series(train_accuracy)
+        .fillna(0)
+        .rename(experiment_config["model_name"]),
         # "val": pd.Series(val_accuracy).fillna(0).rename(experiment_config["model_name"]),
-        "target": pd.Series(target_accuracy).fillna(0).rename(experiment_config["model_name"]),
+        "target": pd.Series(target_accuracy)
+        .fillna(0)
+        .rename(experiment_config["model_name"]),
     }
 
     return results
@@ -152,7 +157,7 @@ def main(
     num_epochs: int = 200,
     batch_size: int = 256,
     learning_rate: float = 1e-3,
-    only_cross_entropy: bool = False
+    only_cross_entropy: bool = False,
 ):
     models = [
         {"model_name": "CNN", "cnn": True},
@@ -170,7 +175,7 @@ def main(
             "num_epochs": num_epochs,
             "batch_size": batch_size,
             "learning_rate": learning_rate,
-            "only_cross_entropy": only_cross_entropy
+            "only_cross_entropy": only_cross_entropy,
         }
         experiment_config = {**experiment_config, **model_config}
         exp_results = multiple_trials(
@@ -186,7 +191,7 @@ def main(
 if __name__ == "__main__":
     import argparse
 
-    parser = argparse.ArgumentParser(description='Experiment setup')
-    parser.add_argument('--only_cross_entropy', action="store_true")
+    parser = argparse.ArgumentParser(description="Experiment setup")
+    parser.add_argument("--only_cross_entropy", action="store_true")
     args = parser.parse_args()
     main(only_cross_entropy=args.only_cross_entropy)
