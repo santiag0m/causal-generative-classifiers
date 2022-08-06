@@ -3,6 +3,7 @@
 
 # Datasets
 data/
+trial_results*/
 
 # Outputs
 results/
