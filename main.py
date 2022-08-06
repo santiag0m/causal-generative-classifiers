@@ -38,7 +38,7 @@ def experiment(
     num_epochs: int,
     cnn: bool = False,
     mlp_layers: List[int] = [],
-    verbose: bool = True,
+    verbose: bool = False,
     **kwargs,
 ):
     backbone = get_backbone(cnn=cnn, mlp_layers=mlp_layers)
@@ -93,8 +93,7 @@ def experiment(
     val_accuracy = compute_accuracy(model, val_dataloader)
     target_accuracy = compute_accuracy(model, target_dataloader)
 
-    if verbose:
-        print(f"{train_accuracy=:.4f}, {val_accuracy=:.4f}, {target_accuracy=:.4f}\n")
+    print(f"{train_accuracy=:.4f}, {val_accuracy=:.4f}, {target_accuracy=:.4f}\n")
 
     results = {
         "train_history": train_history,
@@ -110,6 +109,7 @@ def experiment(
 def multiple_trials(experiment_config: Dict, num_trials: int) -> Dict:
     results = []
     for i in tqdm(range(num_trials)):
+        print(f"Trial {i+1}/{num_trials}")
         trial_results = experiment(**experiment_config)
         results.append(trial_results)
 
