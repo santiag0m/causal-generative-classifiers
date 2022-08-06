@@ -155,7 +155,7 @@ def plot_results(df: pd.DataFrame, title: str = ""):
 
 
 def main(
-    num_trials: int = 20,
+    num_trials: int = 7,
     num_epochs: int = 7,
     batch_size: int = 32,
     learning_rate: float = 1e-3,
