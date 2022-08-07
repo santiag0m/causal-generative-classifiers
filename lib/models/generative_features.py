@@ -8,7 +8,6 @@ from sklearn.neighbors import KernelDensity
 
 from .cnn import CNNBackbone
 from .mlp import MLPBackbone
-from .utils import multiply_probs_with_logits, divide_probs_with_logits
 
 
 class GenerativeFeatures(nn.Module):
@@ -52,26 +51,23 @@ class GenerativeFeatures(nn.Module):
         residuals = residuals.reshape(-1, self.hidden_dim)  # (Batch * Class, Features)
         logits_z_y = self.residual_classifier(residuals)  # (Batch * Class, 1)
         logits_z_y = logits_z_y.reshape(-1, self.num_classes)  # (Batch, Class)
-        logits_y_z = self.calculate_posterior(logits_z_y)
+        logits_y_z = self.calculate_joint(logits_z_y)
         return logits_y_z
 
 
-    def calculate_posterior(self, logits_z_y: torch.Tensor) -> torch.Tensor:
+    def calculate_joint(self, logits_z_y: torch.Tensor) -> torch.Tensor:
         if not self.fitted_class_probs:
             raise ValueError(
                 "Marginal class probabilities have not been estimated.\n"
                 "Call 'self.fit_class_probs(TrainDataloader)' first."
                 )
+
         probs_y = torch.clamp(self.class_probs, min=self.eps, max=1-self.eps)  # (, Class)
-        logits_y = torch.logit(probs_y[None, ...])  # (1, Class)
+        logits_y = torch.log(probs_y[None, ...])  # (1, Class)
         logits_y = torch.broadcast_to(logits_y, logits_z_y.shape)  # (Batch, Class)
-        logits_joint = multiply_probs_with_logits(logits_z_y, logits_y)  # (Batch, Class)
-        probs_joint = torch.sigmoid(logits_joint)
-        probs_z = torch.sum(probs_joint, dim=-1, keepdim=True)  # (Batch, 1)
-        logits_z = torch.logit(probs_z)
-        logits_z = torch.broadcast_to(logits_z, logits_joint.shape)  # (Batch, Class)
-        logits_y_z = divide_probs_with_logits(logits_joint, logits_z)
-        return logits_y_z
+        logits_joint= logits_z_y + logits_y
+        
+        return logits_joint
 
     def fit_class_probs(self, dataloader: DataLoader):
         total = 0
