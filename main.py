@@ -167,9 +167,9 @@ def plot_results(df: pd.DataFrame, title: str = ""):
 
 def main(
     num_trials: int = 20,
-    num_epochs: int = 15,
+    num_epochs: int = 20,
     batch_size: int = 32,
-    learning_rate: float = 0.1,
+    learning_rate: float = 1e-2,
     only_cross_entropy: bool = False,
 ):
     models = [
