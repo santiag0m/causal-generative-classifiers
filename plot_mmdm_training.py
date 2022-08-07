@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 from typing import List, Dict, Tuple
 
+import matplotlib
 import matplotlib.pyplot as plt
 
 from lib.plot.colorline import colorline
@@ -31,6 +32,8 @@ def update_min_max(
 
 
 def main(trial_folder: str):
+    matplotlib.rcParams.update({"font.size": 16})
+
     trial_results = load_trials(trial_folder)
     plt.ion()
     f, ax = plt.subplots()
