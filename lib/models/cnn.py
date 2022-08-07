@@ -1,21 +1,23 @@
 import torch
 import torch.nn as nn
+from torch.nn.utils.parametrizations import spectral_norm
 
 
 class CNNBackbone(nn.Module):
-    def __init__(self, in_channels: int = 1, out_features: int = 10):
+    def __init__(self, in_channels: int = 1, out_features: int = 10, spectral_norm: bool = False):
         super().__init__()
 
         self.out_features = out_features
+        self.spectral_norm = spectral_norm
 
-        self.conv_1 = nn.Conv2d(
+        self.conv_1 = self._spectral_norm(nn.Conv2d(
             in_channels=in_channels, out_channels=32, kernel_size=3, stride=1, padding=1
-        )
-        self.conv_2 = nn.Conv2d(
+        ))
+        self.conv_2 = self._spectral_norm(nn.Conv2d(
             in_channels=32, out_channels=64, kernel_size=3, stride=1, padding=1
-        )
-        self.fc_1 = nn.Linear(in_features=7 * 7 * 64, out_features=524)
-        self.fc_2 = nn.Linear(in_features=524, out_features=out_features)
+        ))
+        self.fc_1 = self._spectral_norm(nn.Linear(in_features=7 * 7 * 64, out_features=524))
+        self.fc_2 = self._spectral_norm(nn.Linear(in_features=524, out_features=out_features))
 
         self.relu = nn.ReLU()
         self.pool = nn.MaxPool2d(kernel_size=2, stride=2)
@@ -29,3 +31,8 @@ class CNNBackbone(nn.Module):
         x = self.relu(self.fc_1(x))
         x = self.fc_2(x)
         return x
+
+    def _spectral_norm(self, layer: nn.Module) -> nn.Module:
+        if self.spectral_norm:
+            layer = spectral_norm(layer)
+        return layer

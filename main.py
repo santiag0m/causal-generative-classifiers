@@ -33,7 +33,7 @@ def experiment(
     verbose: bool = True,
     **kwargs,
 ):
-    backbone = get_backbone(cnn=cnn, mlp_layers=mlp_layers)
+    backbone = get_backbone(cnn=cnn, mlp_layers=mlp_layers, spectral_norm=True)
     model = GenerativeFeatures(backbone, NUM_CLASSES, spectral_norm=True)
     model.to(DEVICE)
 
