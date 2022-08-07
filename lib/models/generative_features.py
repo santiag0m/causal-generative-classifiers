@@ -35,14 +35,18 @@ class GenerativeFeatures(nn.Module):
         residual = observed_features - predicted_features
         return residual
 
-    def fit_kde(self, dataloader: DataLoader, kernel_bandwidth: float = 1.0):
+    def fit_kde(self, dataloader: DataLoader, kernel_bandwidth: float = 1.0, verbose: bool = True):
 
         residual_list = []
 
         with torch.no_grad():
             total = 0
             class_probs = torch.zeros_like(self.class_probs)
-            for x, y in tqdm(dataloader, total=len(dataloader)):
+            if verbose:
+                pbar = tqdm(dataloader, total=len(dataloader))
+            else:
+                pbar = dataloader
+            for x, y in pbar:
                 x = self.move_tensor_to_device(x)
                 y = self.move_tensor_to_device(y)
                 residual = self.forward(x, y)

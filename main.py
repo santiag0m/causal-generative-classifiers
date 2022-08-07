@@ -86,7 +86,7 @@ def experiment(
             best_loss = val_loss
 
     # Fit KDE after training
-    model.fit_kde(train_dataloader)
+    model.fit_kde(train_dataloader, verbose=verbose)
 
     # Check accuracy
     train_accuracy = compute_accuracy(model, train_dataloader)
