@@ -118,7 +118,7 @@ def multiple_trials(experiment_config: Dict, num_trials: int) -> Dict:
         trial_results = experiment(**experiment_config)
         results.append(trial_results)
         with open(os.path.join(TRIAL_FOLDER, f"trial_{i:03d}.json"), "w") as f:
-            json.dump(results, f)
+            json.dump(trial_results, f)
 
     train_accuracy = [trial["train_accuracy"] for trial in results]
     val_accuracy = [trial["val_accuracy"] for trial in results]
