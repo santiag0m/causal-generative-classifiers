@@ -27,7 +27,8 @@ class GenerativeFeatures(nn.Module):
         self.residual_classifier = nn.Sequential(
             *[self._spectral_norm(nn.Linear(self.hidden_dim, self.hidden_dim)),
             nn.ReLU()]*1,
-            self._spectral_norm(nn.Linear(self.hidden_dim, 1))
+            self._spectral_norm(nn.Linear(self.hidden_dim, 1)),
+            nn.ReLU(),  # Model outputs probability densities which cannot be negative
         )
         self.class_probs = nn.Parameter(
             torch.zeros((self.num_classes,)), requires_grad=False
@@ -50,7 +51,7 @@ class GenerativeFeatures(nn.Module):
 
     def classify_residuals(self, residuals: torch.Tensor) -> Tuple[torch.Tensor]:
         residuals = residuals.reshape(-1, self.hidden_dim)  # (Batch * Class, Features)
-        logits_z_y = self.residual_classifier(residuals)  # (Batch * Class, 1)
+        logits_z_y = torch.log(self.residual_classifier(residuals))  # (Batch * Class, 1)
         logits_z_y = logits_z_y.reshape(-1, self.num_classes)  # (Batch, Class)
         logits_y_z = self.calculate_joint(logits_z_y)
         return logits_y_z
