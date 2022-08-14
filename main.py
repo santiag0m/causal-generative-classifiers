@@ -29,12 +29,13 @@ def experiment(
     num_epochs: int,
     cnn: bool = False,
     mlp_layers: List[int] = [],
+    spectral_norm: bool = False,
     only_cross_entropy: bool = False,
     verbose: bool = True,
     **kwargs,
 ):
-    backbone = get_backbone(cnn=cnn, mlp_layers=mlp_layers, spectral_norm=True)
-    model = GenerativeFeatures(backbone, NUM_CLASSES, spectral_norm=True)
+    backbone = get_backbone(cnn=cnn, mlp_layers=mlp_layers, spectral_norm=spectral_norm)
+    model = GenerativeFeatures(backbone, NUM_CLASSES, spectral_norm=spectral_norm)
     model.to(DEVICE)
 
     # Create Datasets
@@ -170,6 +171,7 @@ def main(
     num_epochs: int = 160,
     batch_size: int = 128,
     learning_rate: float = 1e-3,
+    spectral_norm: bool = False,
     only_cross_entropy: bool = False,
 ):
     models = [
@@ -188,6 +190,7 @@ def main(
             "num_epochs": num_epochs,
             "batch_size": batch_size,
             "learning_rate": learning_rate,
+            "spectral_norm": spectral_norm,
             "only_cross_entropy": only_cross_entropy,
         }
         experiment_config = {**experiment_config, **model_config}
@@ -206,5 +209,6 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Experiment setup")
     parser.add_argument("--only_cross_entropy", action="store_true")
+    parser.add_argument("--spectral_norm", action="store_true")
     args = parser.parse_args()
-    main(only_cross_entropy=args.only_cross_entropy)
+    main(only_cross_entropy=args.only_cross_entropy, spectral_norm=args.spectral_norm)
