@@ -170,7 +170,7 @@ def main(
     num_trials: int = 20,
     num_epochs: int = 20,
     batch_size: int = 16,
-    learning_rate: float = 5e-2,
+    learning_rate: float = 1e-2,
     spectral_norm: bool = False,
     only_cross_entropy: bool = False,
 ):
