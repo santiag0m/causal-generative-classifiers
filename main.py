@@ -34,8 +34,8 @@ def experiment(
     verbose: bool = True,
     **kwargs,
 ):
-    backbone = get_backbone(cnn=cnn, mlp_layers=mlp_layers, spectral_norm=False)
-    model = GenerativeFeatures(backbone, NUM_CLASSES, spectral_norm=spectral_norm, num_layers=2)
+    backbone = get_backbone(cnn=cnn, mlp_layers=mlp_layers, spectral_norm=spectral_norm)
+    model = GenerativeFeatures(backbone, NUM_CLASSES, spectral_norm=spectral_norm, num_layers=1)
     model.to(DEVICE)
 
     # Create Datasets
