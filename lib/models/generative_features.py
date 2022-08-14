@@ -13,7 +13,7 @@ from .mlp import MLPBackbone
 
 class GenerativeFeatures(nn.Module):
     def __init__(
-        self, backbone: Union[CNNBackbone, MLPBackbone], num_classes: int = 10, eps: float = 1e-6, spectral_norm: bool = False
+        self, backbone: Union[CNNBackbone, MLPBackbone], num_classes: int = 10, num_layers: int = 1, eps: float = 1e-6, spectral_norm: bool = False
     ):
         super().__init__()
         self.backbone = backbone
@@ -26,7 +26,7 @@ class GenerativeFeatures(nn.Module):
 
         self.residual_classifier = nn.Sequential(
             *[self._spectral_norm(nn.Linear(self.hidden_dim, self.hidden_dim)),
-            nn.ReLU()]*1,
+            nn.ReLU()] * num_layers,
             self._spectral_norm(nn.Linear(self.hidden_dim, 1)),
         )
         self.class_probs = nn.Parameter(
