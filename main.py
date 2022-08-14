@@ -168,7 +168,7 @@ def plot_results(df: pd.DataFrame, title: str = ""):
 
 def main(
     num_trials: int = 20,
-    num_epochs: int = 10,
+    num_epochs: int = 20,
     batch_size: int = 64,
     learning_rate: float = 1e-1,
     spectral_norm: bool = False,
