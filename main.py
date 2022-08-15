@@ -34,7 +34,7 @@ def experiment(
     verbose: bool = True,
     **kwargs,
 ):
-    backbone = get_backbone(cnn=cnn, mlp_layers=mlp_layers, spectral_norm=spectral_norm)
+    backbone = get_backbone(cnn=cnn, mlp_layers=mlp_layers, spectral_norm=False)
     model = GenerativeFeatures(backbone, NUM_CLASSES, spectral_norm=spectral_norm, num_layers=1)
     model.to(DEVICE)
 
@@ -168,7 +168,7 @@ def plot_results(df: pd.DataFrame, title: str = ""):
 
 def main(
     num_trials: int = 20,
-    num_epochs: int = 20,
+    num_epochs: int = 40,
     batch_size: int = 16,
     learning_rate: float = 5e-2,
     spectral_norm: bool = False,
