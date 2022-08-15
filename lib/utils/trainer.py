@@ -43,7 +43,9 @@ def train(
         ce_loss = cross_entropy(logits, targets)
 
         if use_adversarial:
+            print(residuals.shape)
             residuals = residuals[:, targets, :]
+            print(residuals.shape)
             adversarial_loss = cross_entropy(
                 model.adversarial_classifier(residuals),
                 targets
