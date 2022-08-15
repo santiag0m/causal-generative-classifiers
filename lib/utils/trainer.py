@@ -43,6 +43,7 @@ def train(
         ce_loss = cross_entropy(logits, targets)
 
         if use_adversarial:
+            residuals = residuals[:, targets, :]
             adversarial_loss = cross_entropy(
                 model.adversarial_classifier(residuals),
                 targets
@@ -114,6 +115,7 @@ def eval(
             logits = model.classify_residuals(residuals)
 
             if use_adversarial:
+                residuals = residuals[:, targets, :]
                 adversarial_loss = cross_entropy(
                     model.adversarial_classifier(residuals),
                     targets
