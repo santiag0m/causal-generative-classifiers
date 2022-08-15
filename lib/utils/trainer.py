@@ -43,7 +43,8 @@ def train(
         ce_loss = cross_entropy(logits, targets)
 
         if use_adversarial:
-            residuals = torch.index_select(residuals, dim=1, index=targets)
+            protoypes = torch.index_select(model.class_prototypes.weight, dim=0, index=targets)[None, ...]
+            residuals = features - protoypes
             adversarial_loss = cross_entropy(
                 model.adversarial_classifier(residuals),
                 targets
@@ -115,7 +116,8 @@ def eval(
             logits = model.classify_residuals(residuals)
 
             if use_adversarial:
-                residuals = torch.index_select(residuals, dim=1, index=targets)
+                protoypes = torch.index_select(model.class_prototypes.weight, dim=0, index=targets)[None, ...]
+                residuals = features - protoypes
                 adversarial_loss = cross_entropy(
                     model.adversarial_classifier(residuals),
                     targets
