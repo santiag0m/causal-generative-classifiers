@@ -24,6 +24,12 @@ class GenerativeFeatures(nn.Module):
 
         self.class_prototypes = self._spectral_norm(nn.Linear(self.num_classes, self.hidden_dim))
 
+        self.adversarial_classifier = nn.Sequential(
+            *[self._spectral_norm(nn.Linear(self.hidden_dim, self.hidden_dim)),
+            nn.ReLU()] * num_layers,
+            self._spectral_norm(nn.Linear(self.hidden_dim, self.num_classes)),
+        )
+
         self.residual_classifier = nn.Sequential(
             *[self._spectral_norm(nn.Linear(self.hidden_dim, self.hidden_dim)),
             nn.ReLU()] * num_layers,

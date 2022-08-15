@@ -10,7 +10,6 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 from torch.utils.data import DataLoader, random_split
 
-from lib.losses import HSIC
 from lib.datasets import MNIST
 from lib.utils.mmdm import MMDMOptim
 from lib.utils.trainer import train, eval
@@ -49,36 +48,40 @@ def experiment(
     target_dataloader = DataLoader(target_dataset, batch_size=batch_size)
 
     # Setup Optimizer
+    adversarial_optim = torch.optim.SGD(model.adversarial_classifier.parameters(), lr=learning_rate)
+
+    mmdm_params = list(model.backbone.parameters()) + list(model.class_protoypes.parameters()) + list(model.residual_classifier.parameters())
     mmdm_optim = MMDMOptim(
-        params=model.parameters(), lr=learning_rate, model_optim=torch.optim.SGD
+        params=mmdm_params, lr=learning_rate, model_optim=torch.optim.SGD
     )
 
     # Fit class priors before training
     model.fit_class_probs(train_dataloader)
 
     # Train
-    train_history = {"hsic": [], "cross_entropy": []}
-    val_history = {"hsic": [], "cross_entropy": []}
+    train_history = {"adversarial": [], "cross_entropy": []}
+    val_history = {"adversarial": [], "cross_entropy": []}
     best_loss = 1e10
 
     for epoch_idx in range(num_epochs):
         if verbose:
             print(f"\nEpoch {epoch_idx}")
-        train_hsic_loss, train_ce_loss, train_accuracy = train(
+        train_adversarial_loss, train_ce_loss, train_accuracy = train(
             model=model,
             dataloader=train_dataloader,
+            adversarial_optim=adversarial_optim,
             mmdm_optim=mmdm_optim,
             use_pbar=verbose,
-            use_hsic=not only_cross_entropy,
+            use_adversarial=not only_cross_entropy,
         )
-        val_hsic_loss, val_ce_loss, val_accuracy = eval(
+        val_adversarial_loss, val_ce_loss, val_accuracy = eval(
             model=model,
             dataloader=val_dataloader,
             use_pbar=verbose,
-            use_hsic=not only_cross_entropy,
+            use_adversarial=not only_cross_entropy,
         )
-        train_history["hsic"].append(train_hsic_loss)
-        val_history["hsic"].append(val_hsic_loss)
+        train_history["adversarial"].append(train_adversarial_loss)
+        val_history["adversarial"].append(val_adversarial_loss)
         train_history["cross_entropy"].append(train_ce_loss)
         val_history["cross_entropy"].append(val_ce_loss)
 
@@ -87,11 +90,11 @@ def experiment(
             best_loss = val_accuracy
 
     # Check accuracy
-    target_hsic_loss, target_ce_loss, target_accuracy = eval(
+    target_adversarial_loss, target_ce_loss, target_accuracy = eval(
         model=model,
         dataloader=target_dataloader,
         use_pbar=verbose,
-        use_hsic=True,
+        use_adversarial=True,
     )
 
     if verbose:
@@ -199,7 +202,7 @@ def main(
         )
         results.append(exp_results)
     results = group_results(results)
-    results["loss_criterion"] = "HSIC Classification"
+    results["loss_criterion"] = "Adversarial Classification"
     results.to_csv("mmdm_results.csv", index=False)
     plot_results(results)
 
