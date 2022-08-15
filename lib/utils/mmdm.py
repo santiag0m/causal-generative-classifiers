@@ -24,7 +24,10 @@ class MMDMOptim:
             **kwargs
         ):
 
-        device = next(params).device
+        if isinstance(params, list):
+            device = params[0].device
+        else:
+            device = next(params).device
 
         self.damping = damping
         self.lambda_ = Lambda().to(device)
