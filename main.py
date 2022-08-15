@@ -50,7 +50,7 @@ def experiment(
     # Setup Optimizer
     adversarial_optim = torch.optim.SGD(model.adversarial_classifier.parameters(), lr=learning_rate)
 
-    mmdm_params = list(model.backbone.parameters()) + list(model.class_protoypes.parameters()) + list(model.residual_classifier.parameters())
+    mmdm_params = list(model.backbone.parameters()) + list(model.class_prototypes.parameters()) + list(model.residual_classifier.parameters())
     mmdm_optim = MMDMOptim(
         params=mmdm_params, lr=learning_rate, model_optim=torch.optim.SGD
     )
