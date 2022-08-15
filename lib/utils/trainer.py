@@ -44,6 +44,7 @@ def train(
 
         if use_adversarial:
             protoypes = torch.index_select(model.class_prototypes.weight, dim=0, index=targets)[None, ...]
+            print(protoypes.shape)
             residuals = features - protoypes
             adversarial_loss = cross_entropy(
                 model.adversarial_classifier(residuals),
