@@ -34,7 +34,9 @@ def experiment(
     **kwargs,
 ):
     backbone = get_backbone(cnn=cnn, mlp_layers=mlp_layers, spectral_norm=spectral_norm)
-    model = GenerativeFeatures(backbone, NUM_CLASSES, spectral_norm=spectral_norm, num_layers=1)
+    model = GenerativeFeatures(
+        backbone, NUM_CLASSES, spectral_norm=spectral_norm, num_layers=1
+    )
     model.to(DEVICE)
 
     # Create Datasets
@@ -48,9 +50,15 @@ def experiment(
     target_dataloader = DataLoader(target_dataset, batch_size=batch_size)
 
     # Setup Optimizer
-    adversarial_optim = torch.optim.SGD(model.adversarial_classifier.parameters(), lr=learning_rate)
+    adversarial_optim = torch.optim.SGD(
+        model.adversarial_classifier.parameters(), lr=learning_rate
+    )
 
-    mmdm_params = list(model.backbone.parameters()) + list(model.class_prototypes.parameters()) + list(model.residual_classifier.parameters())
+    mmdm_params = (
+        list(model.backbone.parameters())
+        + list(model.class_prototypes.parameters())
+        + list(model.residual_classifier.parameters())
+    )
     mmdm_optim = MMDMOptim(
         params=mmdm_params, lr=learning_rate, model_optim=torch.optim.SGD
     )
@@ -171,7 +179,7 @@ def plot_results(df: pd.DataFrame, title: str = ""):
 
 def main(
     num_trials: int = 20,
-    num_epochs: int = 10,
+    num_epochs: int = 100,
     batch_size: int = 16,
     learning_rate: float = 5e-2,
     spectral_norm: bool = False,
