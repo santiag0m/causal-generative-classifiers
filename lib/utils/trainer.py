@@ -10,6 +10,21 @@ from .mmdm import MMDMOptim
 from .running_average import RunningAverage
 
 
+def shuffle_batch(x: torch.Tensor) -> torch.Tensor:
+    batch = x.shape[0]
+    indices = torch.randperm(batch)
+    return x[indices, ...]
+
+
+def nll_diff(logits: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
+    nll_marginals = cross_entropy(
+        logits,
+        shuffle_batch(targets),
+    )
+    nll_joint = cross_entropy(logits, targets)
+    return nll_marginals - nll_joint
+
+
 def train(
     *,
     model: nn.Module,
@@ -43,32 +58,37 @@ def train(
         ce_loss = cross_entropy(logits, targets)
 
         if use_adversarial:
-            protoypes = torch.index_select(model.class_prototypes.weight, dim=0, index=targets)
-            residuals = features - protoypes
-            adversarial_loss = cross_entropy(
-                model.adversarial_classifier(residuals),
-                targets
+            prototypes = model.class_prototypes(
+                torch.nn.functional.one_hot(
+                    targets, num_classes=model.num_classes
+                ).float()
             )
-        else:
-            adversarial_loss = -1
+            adversarial_residual = features - prototypes
 
-        if use_adversarial:
             if idx % 2:
+                adversarial_loss = nll_diff(
+                    model.adversarial_classifier(adversarial_residual.detach()), targets
+                )
+                adversarial_loss.backward()
+                adversarial_optim.step()
+            else:
+                adversarial_loss = nll_diff(
+                    model.adversarial_classifier(adversarial_residual), targets
+                )
                 mmdm_loss = mmdm_optim.lagrangian(
-                    main_loss=ce_loss, constrained_loss=-1 * adversarial_loss, target_value=0
+                    main_loss=ce_loss,
+                    constrained_loss=-1 * adversarial_loss,
+                    target_value=0,
                 )
                 mmdm_loss.backward()
                 mmdm_optim.step()
-            else:
-                adversarial_loss.backward()
-                adversarial_optim.step()
 
             adversarial_loss = adversarial_loss.item()
-            ce_loss = ce_loss.item()
         else:
             ce_loss.backward()
             mmdm_optim.model_optim.step()
-            ce_loss = ce_loss.item()
+
+        ce_loss = ce_loss.item()
 
         preds = torch.argmax(logits, dim=-1)
         correct = preds == targets
@@ -116,11 +136,14 @@ def eval(
             logits = model.classify_residuals(residuals)
 
             if use_adversarial:
-                protoypes = torch.index_select(model.class_prototypes.weight, dim=0, index=targets)
-                residuals = features - protoypes
-                adversarial_loss = cross_entropy(
-                    model.adversarial_classifier(residuals),
-                    targets
+                prototypes = model.class_prototypes(
+                    torch.nn.functional.one_hot(
+                        targets, num_classes=model.num_classes
+                    ).float()
+                )
+                adversarial_residual = features - prototypes
+                adversarial_loss = nll_diff(
+                    model.adversarial_classifier(adversarial_residual).detach(), targets
                 ).item()
             else:
                 adversarial_loss = -1
