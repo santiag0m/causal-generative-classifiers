@@ -1,10 +1,9 @@
-from typing import Union, Tuple
+from typing import Union, Tuple, Optional
 
 import torch
 import torch.nn as nn
 from tqdm import tqdm
 from torch.utils.data import DataLoader
-from sklearn.neighbors import KernelDensity
 from torch.nn.utils.parametrizations import spectral_norm
 
 from .cnn import CNNBackbone
@@ -13,7 +12,12 @@ from .mlp import MLPBackbone
 
 class GenerativeFeatures(nn.Module):
     def __init__(
-        self, backbone: Union[CNNBackbone, MLPBackbone], num_classes: int = 10, num_layers: int = 1, eps: float = 1e-6, spectral_norm: bool = False
+        self,
+        backbone: Union[CNNBackbone, MLPBackbone],
+        num_classes: int = 10,
+        num_layers: int = 1,
+        eps: float = 1e-6,
+        spectral_norm: bool = False,
     ):
         super().__init__()
         self.backbone = backbone
@@ -21,26 +25,24 @@ class GenerativeFeatures(nn.Module):
         self.hidden_dim = backbone.out_features
         self.eps = eps
         self.spectral_norm = spectral_norm
+        self.num_layers = num_layers
 
-        self.class_prototypes = self._spectral_norm(nn.Linear(self.num_classes, self.hidden_dim))
-
-        self.adversarial_classifier = nn.Sequential(
-            *[self._spectral_norm(nn.Linear(self.hidden_dim, self.hidden_dim)),
-            nn.ReLU()] * num_layers,
-            self._spectral_norm(nn.Linear(self.hidden_dim, self.num_classes)),
+        self.class_prototypes = self._spectral_norm(
+            nn.Linear(self.num_classes, self.hidden_dim)
         )
 
-        self.residual_classifier = nn.Sequential(
-            *[self._spectral_norm(nn.Linear(self.hidden_dim, self.hidden_dim)),
-            nn.ReLU()] * num_layers,
-            self._spectral_norm(nn.Linear(self.hidden_dim, 1)),
-        )
+        self.adversarial_classifier = self._build_mlp(out_dim=self.num_classes)
+
+        self.residual_classifier = self._build_mlp(out_dim=1)
+
         self.class_probs = nn.Parameter(
             torch.zeros((self.num_classes,)), requires_grad=False
         )
         self.fitted_class_probs = False
 
-    def forward(self, x: torch.Tensor, detach_residual: bool = True) -> Tuple[torch.Tensor, torch.Tensor]:
+    def forward(
+        self, x: torch.Tensor, detach_residual: bool = True
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
         z = self.get_features(x)
         residuals = self.get_residuals(z)
         logits_y_z = self.classify_residuals(residuals, detach_residual)
@@ -51,12 +53,22 @@ class GenerativeFeatures(nn.Module):
         return z
 
     def get_residuals(self, observed_features: torch.Tensor) -> torch.Tensor:
-        residuals = observed_features[:, None, :] - self.class_prototypes.weight[None, ...]  # (Batch, Class, Features)
+        prototypes = self.class_prototypes(
+            torch.nn.functional.one_hot(
+                torch.arange(self.num_classes, device=observed_features.device),
+                num_classes=self.num_classes,
+            ).float()
+        )
+        residuals = (
+            observed_features[:, None, :] - prototypes[None, ...]
+        )  # (Batch, Class, Features)
         return residuals
 
     def classify_residuals(self, residuals: torch.Tensor) -> Tuple[torch.Tensor]:
         residuals = residuals.reshape(-1, self.hidden_dim)  # (Batch * Class, Features)
-        logits_z_y = self._log_elu(self.residual_classifier(residuals))  # (Batch * Class, 1)
+        logits_z_y = self._log_elu(
+            self.residual_classifier(residuals)
+        )  # (Batch * Class, 1)
         logits_z_y = logits_z_y.reshape(-1, self.num_classes)  # (Batch, Class)
         logits_y_z = self.calculate_joint(logits_z_y)
         return logits_y_z
@@ -64,21 +76,22 @@ class GenerativeFeatures(nn.Module):
     @staticmethod
     def _log_elu(features: torch.Tensor) -> torch.Tensor:
         log_features = torch.log(features + 1)
-        return torch.where(features >0, log_features, features)
-
+        return torch.where(features > 0, log_features, features)
 
     def calculate_joint(self, logits_z_y: torch.Tensor) -> torch.Tensor:
         if not self.fitted_class_probs:
             raise ValueError(
                 "Marginal class probabilities have not been estimated.\n"
                 "Call 'self.fit_class_probs(TrainDataloader)' first."
-                )
+            )
 
-        probs_y = torch.clamp(self.class_probs, min=self.eps, max=1-self.eps)  # (, Class)
+        probs_y = torch.clamp(
+            self.class_probs, min=self.eps, max=1 - self.eps
+        )  # (, Class)
         logits_y = torch.log(probs_y[None, ...])  # (1, Class)
         logits_y = torch.broadcast_to(logits_y, logits_z_y.shape)  # (Batch, Class)
-        logits_joint= logits_z_y + logits_y
-        
+        logits_joint = logits_z_y + logits_y
+
         return logits_joint
 
     def fit_class_probs(self, dataloader: DataLoader):
@@ -91,7 +104,7 @@ class GenerativeFeatures(nn.Module):
             class_probs += torch.nn.functional.one_hot(
                 y, num_classes=self.num_classes
             ).sum(dim=0)
-        
+
         class_probs = class_probs / total
         self.class_probs.copy_(class_probs)
 
@@ -107,3 +120,15 @@ class GenerativeFeatures(nn.Module):
         if self.spectral_norm:
             layer = spectral_norm(layer)
         return layer
+
+    def _build_mlp(self, out_dim: int):
+        layers = []
+        for _ in range(self.num_layers):
+            layers.append(
+                self._spectral_norm(nn.Linear(self.hidden_dim, self.hidden_dim))
+            )
+            layers.append(nn.ReLU())
+
+        layers.append(self._spectral_norm(nn.Linear(self.hidden_dim, out_dim))),
+
+        return nn.Sequential(*layers)
