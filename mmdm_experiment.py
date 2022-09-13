@@ -14,7 +14,7 @@ from lib.losses import HSIC
 from lib.datasets import MNIST
 from lib.utils.mmdm import MMDMOptim
 from lib.utils.trainer import train, eval
-from lib.models import get_backbone, GenerativeFeatures
+from lib.models import get_backbone, CGCResidual
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -35,7 +35,9 @@ def experiment(
     **kwargs,
 ):
     backbone = get_backbone(cnn=cnn, mlp_layers=mlp_layers, spectral_norm=spectral_norm)
-    model = GenerativeFeatures(backbone, NUM_CLASSES, spectral_norm=spectral_norm, num_layers=1)
+    model = CGCResidual(
+        backbone, NUM_CLASSES, spectral_norm=spectral_norm, num_layers=1
+    )
     model.to(DEVICE)
 
     # Create Datasets
