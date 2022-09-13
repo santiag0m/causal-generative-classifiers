@@ -2,7 +2,7 @@ from typing import List, Union
 
 from .cnn import CNNBackbone
 from .mlp import MLPBackbone
-from .generative_features import GenerativeFeatures
+from .generative_features import CGCKDE
 
 
 def get_backbone(

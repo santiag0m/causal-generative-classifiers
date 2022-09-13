@@ -10,7 +10,7 @@ from .cnn import CNNBackbone
 from .mlp import MLPBackbone
 
 
-class GenerativeFeatures(nn.Module):
+class CGCKDE(nn.Module):
     def __init__(
         self, backbone: Union[CNNBackbone, MLPBackbone], num_classes: int = 10
     ):
@@ -35,7 +35,12 @@ class GenerativeFeatures(nn.Module):
         residual = observed_features - predicted_features
         return residual
 
-    def fit_kde(self, dataloader: DataLoader, kernel_bandwidth: float = 1.0, verbose: bool = True):
+    def fit_kde(
+        self,
+        dataloader: DataLoader,
+        kernel_bandwidth: float = 1.0,
+        verbose: bool = True,
+    ):
 
         residual_list = []
 

@@ -11,7 +11,7 @@ from lib.losses import HSIC
 from lib.datasets import MNIST
 from lib.utils.trainer import train, eval
 from lib.utils.accuracy import compute_accuracy
-from lib.models import get_backbone, GenerativeFeatures
+from lib.models import get_backbone, CGCKDE
 
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
@@ -42,7 +42,7 @@ def experiment(
     **kwargs,
 ):
     backbone = get_backbone(cnn=cnn, mlp_layers=mlp_layers)
-    model = GenerativeFeatures(backbone, NUM_CLASSES)
+    model = CGCKDE(backbone, NUM_CLASSES)
     model.to(DEVICE)
 
     # Create Datasets
