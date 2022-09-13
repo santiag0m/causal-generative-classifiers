@@ -2,11 +2,8 @@ from typing import List, Union
 
 from .cnn import CNNBackbone
 from .mlp import MLPBackbone
-<<<<<<< HEAD
 from .cgc_residual import CGCResidual
-=======
 from .cgc_kde import CGCKDE
->>>>>>> main
 
 
 def get_backbone(
