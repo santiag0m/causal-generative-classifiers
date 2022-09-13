@@ -23,3 +23,31 @@ def HSIC(x, y, s_x=1, s_y=1):
     H = H.to(x.device)
     HSIC = torch.trace(torch.mm(L, torch.mm(H, torch.mm(K, H)))) / ((m - 1) ** 2)
     return HSIC
+
+
+def hsic_residuals(
+    residuals: torch.tensor, targets: torch.tensor, featurewise: bool = True
+) -> torch.Tensor:
+    batch, num_classes, num_feats = residuals.shape
+    residuals = _index_residuals(residuals, targets)
+
+    targets = torch.nn.functional.one_hot(targets, num_classes=num_classes).float()
+    targets = targets.to(residuals.device)
+
+    if featurewise:
+        loss = 0
+        for i in range(num_feats):
+            loss += HSIC(residuals[:, [i]], targets)
+    else:
+        loss = HSIC(residuals, targets)
+    return loss
+
+
+def _index_residuals(residuals: torch.tensor, targets: torch.tensor) -> torch.Tensor:
+    batch, num_classes, num_feats = residuals.shape
+
+    # Select only class residuals for independence
+    index = torch.reshape(targets, (batch, 1, 1))
+    index = torch.broadcast_to(index, size=(batch, 1, num_feats))
+    residuals = torch.gather(residuals, dim=1, index=index)[:, 0, :]
+    return residuals

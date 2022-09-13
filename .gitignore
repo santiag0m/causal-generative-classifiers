@@ -8,6 +8,7 @@ trial_results*/
 # Outputs
 results/
 cls_results.csv
+trial_results*/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

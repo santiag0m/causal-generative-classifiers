@@ -2,6 +2,7 @@ from typing import List, Union
 
 from .cnn import CNNBackbone
 from .mlp import MLPBackbone
+from .cgc_residual import CGCResidual
 from .cgc_kde import CGCKDE
 
 
@@ -10,6 +11,7 @@ def get_backbone(
     in_channels: int = 1,
     in_features: int = 28 * 28,
     mlp_layers: List[int] = [],
+    spectral_norm: bool = False,
 ) -> Union[MLPBackbone, CNNBackbone]:
     # Init model
     if cnn:
@@ -19,6 +21,7 @@ def get_backbone(
             )
         model = CNNBackbone(
             in_channels=in_channels,
+            spectral_norm=spectral_norm,
         )
     elif mlp_layers:
         model = MLPBackbone(in_features=in_features, layers=mlp_layers)
