@@ -28,7 +28,6 @@ def experiment(
     num_epochs: int,
     cnn: bool = False,
     mlp_layers: List[int] = [],
-<<<<<<<< HEAD:mmdm_experiment.py
     spectral_norm: bool = False,
     only_cross_entropy: bool = False,
     verbose: bool = True,
@@ -38,13 +37,6 @@ def experiment(
     model = CGCResidual(
         backbone, NUM_CLASSES, spectral_norm=spectral_norm, num_layers=1
     )
-========
-    verbose: bool = False,
-    **kwargs,
-):
-    backbone = get_backbone(cnn=cnn, mlp_layers=mlp_layers)
-    model = CGCKDE(backbone, NUM_CLASSES)
->>>>>>>> main:kde_experiment.py
     model.to(DEVICE)
 
     # Create Datasets
@@ -93,14 +85,7 @@ def experiment(
 
         if val_accuracy <= best_loss:
             torch.save(model.state_dict(), "./best.pth")
-<<<<<<<< HEAD:mmdm_experiment.py
             best_loss = val_accuracy
-========
-            best_loss = val_loss
-
-    # Fit KDE after training
-    model.fit_kde(train_dataloader, verbose=verbose)
->>>>>>>> main:kde_experiment.py
 
     # Check accuracy
     target_hsic_loss, target_ce_loss, target_accuracy = eval(
@@ -129,13 +114,8 @@ def multiple_trials(experiment_config: Dict, num_trials: int) -> Dict:
     os.makedirs(TRIAL_FOLDER)
 
     results = []
-<<<<<<<< HEAD:mmdm_experiment.py
     for i in range(num_trials):
         print(f"Experiment {i+1}/{num_trials}")
-========
-    for i in tqdm(range(num_trials)):
-        print(f"Trial {i+1}/{num_trials}")
->>>>>>>> main:kde_experiment.py
         trial_results = experiment(**experiment_config)
         results.append(trial_results)
         with open(os.path.join(TRIAL_FOLDER, f"trial_{i:03d}.json"), "w") as f:
@@ -187,19 +167,12 @@ def plot_results(df: pd.DataFrame, title: str = ""):
 
 
 def main(
-<<<<<<<< HEAD:mmdm_experiment.py
     num_trials: int = 20,
     num_epochs: int = 10,
     batch_size: int = 16,
     learning_rate: float = 5e-2,
     spectral_norm: bool = False,
     only_cross_entropy: bool = False,
-========
-    num_trials: int = 7,
-    num_epochs: int = 7,
-    batch_size: int = 32,
-    learning_rate: float = 1e-3,
->>>>>>>> main:kde_experiment.py
 ):
     models = [
         {"model_name": "CNN", "cnn": True},
