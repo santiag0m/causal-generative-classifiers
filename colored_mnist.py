@@ -9,7 +9,7 @@ from torch.utils.data import DataLoader, random_split
 
 from lib.losses import HSIC
 from lib.datasets import MNIST
-from lib.utils.trainer import train, eval
+from lib.utils.mmdm_trainer import train, eval
 from lib.utils.accuracy import compute_accuracy
 from lib.utils.colored_mnist import make_collate_fn
 from lib.models import get_backbone, CGCKDE

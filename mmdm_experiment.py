@@ -10,17 +10,10 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 from torch.utils.data import DataLoader, random_split
 
-from lib.losses import HSIC
 from lib.datasets import MNIST
 from lib.utils.mmdm import MMDMOptim
-from lib.utils.trainer import train, eval
-<<<<<<<< HEAD:mmdm_experiment.py
+from lib.utils.mmdm_trainer import train, eval
 from lib.models import get_backbone, CGCResidual
-========
-from lib.utils.accuracy import compute_accuracy
-from lib.models import get_backbone, CGCKDE
-
->>>>>>>> main:kde_experiment.py
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
