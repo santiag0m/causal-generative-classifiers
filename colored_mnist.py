@@ -1,6 +1,3 @@
-import os
-import json
-import shutil
 from typing import List, Dict
 
 import torch
@@ -12,21 +9,28 @@ from torch.utils.data import DataLoader, random_split
 
 from lib.losses import HSIC
 from lib.datasets import MNIST
-from lib.utils.mmdm import MMDMOptim
 from lib.utils.trainer import train, eval
-<<<<<<<< HEAD:mmdm_experiment.py
-from lib.models import get_backbone, CGCResidual
-========
 from lib.utils.accuracy import compute_accuracy
+from lib.utils.colored_mnist import make_collate_fn
 from lib.models import get_backbone, CGCKDE
 
->>>>>>>> main:kde_experiment.py
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
-NUM_CLASSES = 10
+NUM_CLASSES = 2
 
-TRIAL_FOLDER = "trial_results"
+
+def hsic_one_hot(residuals: torch.tensor, targets: torch.tensor) -> torch.Tensor:
+    targets = torch.nn.functional.one_hot(targets, num_classes=NUM_CLASSES).float()
+    targets = targets.to(residuals.device)
+
+    loss = 0
+    num_features = residuals.shape[-1]
+    for i in range(num_features):
+        excluded = [j for j in range(num_features) if j != i]
+        loss += HSIC(residuals[:, [i]], targets)
+        loss += HSIC(residuals[:, [i]], residuals[:, excluded])
+    return loss
 
 
 def experiment(
@@ -35,23 +39,11 @@ def experiment(
     num_epochs: int,
     cnn: bool = False,
     mlp_layers: List[int] = [],
-<<<<<<<< HEAD:mmdm_experiment.py
-    spectral_norm: bool = False,
-    only_cross_entropy: bool = False,
     verbose: bool = True,
     **kwargs,
 ):
-    backbone = get_backbone(cnn=cnn, mlp_layers=mlp_layers, spectral_norm=spectral_norm)
-    model = CGCResidual(
-        backbone, NUM_CLASSES, spectral_norm=spectral_norm, num_layers=1
-    )
-========
-    verbose: bool = False,
-    **kwargs,
-):
-    backbone = get_backbone(cnn=cnn, mlp_layers=mlp_layers)
+    backbone = get_backbone(cnn=cnn, mlp_layers=mlp_layers, in_channels=2)
     model = CGCKDE(backbone, NUM_CLASSES)
->>>>>>>> main:kde_experiment.py
     model.to(DEVICE)
 
     # Create Datasets
@@ -60,64 +52,57 @@ def experiment(
         source_dataset, [10_000, 1_000, len(source_dataset) - 11_000]
     )
     target_dataset = MNIST(rotated=True, train=False)
-    train_dataloader = DataLoader(train_dataset, batch_size=batch_size)
-    val_dataloader = DataLoader(val_dataset, batch_size=batch_size)
-    target_dataloader = DataLoader(target_dataset, batch_size=batch_size)
-
-    # Setup Optimizer
-    mmdm_optim = MMDMOptim(
-        params=model.parameters(), lr=learning_rate, model_optim=torch.optim.SGD
+    train_dataloader = DataLoader(
+        train_dataset, batch_size=batch_size, collate_fn=make_collate_fn(e=[0.2, 0.1])
+    )
+    val_dataloader = DataLoader(
+        val_dataset, batch_size=batch_size, collate_fn=make_collate_fn(e=[0.2, 0.1])
+    )
+    target_dataloader = DataLoader(
+        target_dataset, batch_size=batch_size, collate_fn=make_collate_fn(e=0.9)
     )
 
-    # Fit class priors before training
-    model.fit_class_probs(train_dataloader)
+    # Setup Optimizer
+    optim = torch.optim.Adam(params=model.parameters(), lr=learning_rate)
 
     # Train
-    train_history = {"hsic": [], "cross_entropy": []}
-    val_history = {"hsic": [], "cross_entropy": []}
+    train_history = []
+    val_history = []
     best_loss = 1e10
-
     for epoch_idx in range(num_epochs):
         if verbose:
             print(f"\nEpoch {epoch_idx}")
-        train_hsic_loss, train_ce_loss, train_accuracy = train(
+        train_loss = train(
             model=model,
+            criterion=hsic_one_hot,
             dataloader=train_dataloader,
-            mmdm_optim=mmdm_optim,
+            optim=optim,
             use_pbar=verbose,
-            use_hsic=not only_cross_entropy,
+            num_classes=NUM_CLASSES,
         )
-        val_hsic_loss, val_ce_loss, val_accuracy = eval(
+        val_loss = eval(
             model=model,
+            criterion=hsic_one_hot,
             dataloader=val_dataloader,
             use_pbar=verbose,
-            use_hsic=not only_cross_entropy,
         )
-        train_history["hsic"].append(train_hsic_loss)
-        val_history["hsic"].append(val_hsic_loss)
-        train_history["cross_entropy"].append(train_ce_loss)
-        val_history["cross_entropy"].append(val_ce_loss)
+        train_history.append(train_loss)
+        val_history.append(val_loss)
 
-        if val_accuracy <= best_loss:
+        if val_loss <= best_loss:
             torch.save(model.state_dict(), "./best.pth")
-<<<<<<<< HEAD:mmdm_experiment.py
-            best_loss = val_accuracy
-========
             best_loss = val_loss
 
     # Fit KDE after training
-    model.fit_kde(train_dataloader, verbose=verbose)
->>>>>>>> main:kde_experiment.py
+    model.fit_kde(train_dataloader)
 
     # Check accuracy
-    target_hsic_loss, target_ce_loss, target_accuracy = eval(
-        model=model,
-        dataloader=target_dataloader,
-        use_pbar=verbose,
-        use_hsic=True,
-    )
+    train_accuracy = compute_accuracy(model, train_dataloader)
+    val_accuracy = compute_accuracy(model, val_dataloader)
+    target_accuracy = compute_accuracy(model, target_dataloader)
 
-    print(f"{train_accuracy=:.4f}, {val_accuracy=:.4f}, {target_accuracy=:.4f}\n")
+    if verbose:
+        print(f"{train_accuracy=:.4f}, {val_accuracy=:.4f}, {target_accuracy=:.4f}\n")
 
     results = {
         "train_history": train_history,
@@ -131,35 +116,19 @@ def experiment(
 
 
 def multiple_trials(experiment_config: Dict, num_trials: int) -> Dict:
-    if os.path.isdir(TRIAL_FOLDER):
-        shutil.rmtree(TRIAL_FOLDER)
-    os.makedirs(TRIAL_FOLDER)
-
     results = []
-<<<<<<<< HEAD:mmdm_experiment.py
-    for i in range(num_trials):
-        print(f"Experiment {i+1}/{num_trials}")
-========
     for i in tqdm(range(num_trials)):
-        print(f"Trial {i+1}/{num_trials}")
->>>>>>>> main:kde_experiment.py
         trial_results = experiment(**experiment_config)
         results.append(trial_results)
-        with open(os.path.join(TRIAL_FOLDER, f"trial_{i:03d}.json"), "w") as f:
-            json.dump(trial_results, f)
 
     train_accuracy = [trial["train_accuracy"] for trial in results]
     val_accuracy = [trial["val_accuracy"] for trial in results]
     target_accuracy = [trial["target_accuracy"] for trial in results]
 
     results = {
-        "train": pd.Series(train_accuracy)
-        .fillna(0)
-        .rename(experiment_config["model_name"]),
-        # "val": pd.Series(val_accuracy).fillna(0).rename(experiment_config["model_name"]),
-        "target": pd.Series(target_accuracy)
-        .fillna(0)
-        .rename(experiment_config["model_name"]),
+        "train": pd.Series(train_accuracy).rename(experiment_config["model_name"]),
+        # "val": pd.Series(val_accuracy).rename(experiment_config["model_name"]),
+        "target": pd.Series(target_accuracy).rename(experiment_config["model_name"]),
     }
 
     return results
@@ -194,19 +163,10 @@ def plot_results(df: pd.DataFrame, title: str = ""):
 
 
 def main(
-<<<<<<<< HEAD:mmdm_experiment.py
     num_trials: int = 20,
-    num_epochs: int = 10,
-    batch_size: int = 16,
-    learning_rate: float = 5e-2,
-    spectral_norm: bool = False,
-    only_cross_entropy: bool = False,
-========
-    num_trials: int = 7,
     num_epochs: int = 7,
     batch_size: int = 32,
     learning_rate: float = 1e-3,
->>>>>>>> main:kde_experiment.py
 ):
     models = [
         {"model_name": "CNN", "cnn": True},
@@ -224,8 +184,6 @@ def main(
             "num_epochs": num_epochs,
             "batch_size": batch_size,
             "learning_rate": learning_rate,
-            "spectral_norm": spectral_norm,
-            "only_cross_entropy": only_cross_entropy,
         }
         experiment_config = {**experiment_config, **model_config}
         exp_results = multiple_trials(
@@ -234,15 +192,9 @@ def main(
         results.append(exp_results)
     results = group_results(results)
     results["loss_criterion"] = "HSIC Classification"
-    results.to_csv("mmdm_results.csv", index=False)
     plot_results(results)
+    results.to_csv("cls_results.csv", index=False)
 
 
 if __name__ == "__main__":
-    import argparse
-
-    parser = argparse.ArgumentParser(description="Experiment setup")
-    parser.add_argument("--only_cross_entropy", action="store_true")
-    parser.add_argument("--spectral_norm", action="store_true")
-    args = parser.parse_args()
-    main(only_cross_entropy=args.only_cross_entropy, spectral_norm=args.spectral_norm)
+    main()
