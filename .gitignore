@@ -9,6 +9,7 @@ trial_results*/
 results/
 cls_results.csv
 trial_results*/
+class_imbalance_results/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
