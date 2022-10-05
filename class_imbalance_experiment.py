@@ -5,14 +5,13 @@ from typing import List, Dict
 
 import torch
 import pandas as pd
-from tqdm import tqdm
 import seaborn as sns
+from torch.optim import SGD
 import matplotlib.pyplot as plt
 from torchvision import transforms
 from torch.utils.data import DataLoader, random_split
 
-from lib.utils.mmdm import MMDMOptim
-from lib.utils.mmdm_trainer import train, eval
+from lib.utils.ce_trainer import train, eval
 from lib.datasets import ImbalancedImageFolder
 from lib.models import get_backbone, CGCResidual
 from lib.utils.expectation_maximization import expectation_maximization
@@ -87,37 +86,28 @@ def experiment(
     val_dataloader = DataLoader(val_dataset, batch_size=batch_size)
     target_dataloader = DataLoader(target_dataset, batch_size=batch_size)
 
-    # Setup Optimizer
-    mmdm_optim = MMDMOptim(
-        params=model.parameters(), lr=learning_rate, model_optim=torch.optim.SGD
-    )
-
     # Fit class priors before training
     model.fit_class_probs(train_dataloader)
 
     # Train
-    train_history = {"hsic": [], "cross_entropy": []}
-    val_history = {"hsic": [], "cross_entropy": []}
+    train_history = {"cross_entropy": []}
+    val_history = {"cross_entropy": []}
     best_loss = 1e10
 
     for epoch_idx in range(num_epochs):
         if verbose:
             print(f"\nEpoch {epoch_idx}")
-        train_hsic_loss, train_ce_loss, train_accuracy = train(
+        train_ce_loss, train_accuracy = train(
             model=model,
             dataloader=train_dataloader,
-            mmdm_optim=mmdm_optim,
+            optim=SGD(model.parameters(), lr=learning_rate),
             use_pbar=verbose,
-            use_hsic=not only_cross_entropy,
         )
-        val_hsic_loss, val_ce_loss, val_accuracy = eval(
+        val_ce_loss, val_accuracy = eval(
             model=model,
             dataloader=val_dataloader,
             use_pbar=verbose,
-            use_hsic=not only_cross_entropy,
         )
-        train_history["hsic"].append(train_hsic_loss)
-        val_history["hsic"].append(val_hsic_loss)
         train_history["cross_entropy"].append(train_ce_loss)
         val_history["cross_entropy"].append(val_ce_loss)
 
@@ -132,11 +122,10 @@ def experiment(
         model.class_probs.copy_(y_marginal)
 
     # Check accuracy
-    target_hsic_loss, target_ce_loss, target_accuracy = eval(
+    target_ce_loss, target_accuracy = eval(
         model=model,
         dataloader=target_dataloader,
         use_pbar=verbose,
-        use_hsic=True,
     )
 
     print(f"{train_accuracy=:.4f}, {val_accuracy=:.4f}, {target_accuracy=:.4f}\n")
