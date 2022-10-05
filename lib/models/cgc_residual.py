@@ -51,6 +51,15 @@ class CGCResidual(nn.Module):
         logits_y_z = self.classify_residuals(residuals, detach_residual)
         return residuals, logits_y_z
 
+    def get_residual_densities(self, x: torch.Tensor) -> torch.Tensor:
+        z = self.get_features(x)
+        residuals = self.get_residuals(z)
+        logits_z_y = self._log_elu(
+            self.residual_classifier(residuals)
+        )  # (Batch * Class, 1)
+        logits_z_y = logits_z_y.reshape(-1, self.num_classes)  # (Batch, Class)
+        return logits_z_y
+
     def get_features(self, x: torch.Tensor) -> torch.Tensor:
         z = self.backbone(x)  # (Batch, Features)
         return z
@@ -67,7 +76,9 @@ class CGCResidual(nn.Module):
             self.residual_classifier(residuals)
         )  # (Batch * Class, 1)
         logits_z_y = logits_z_y.reshape(-1, self.num_classes)  # (Batch, Class)
-        logits_y_z = self.calculate_joint(logits_z_y)
+        logits_joint = self.calculate_joint(logits_z_y)
+        logits_z = torch.log(torch.exp(logits_joint).sum(dim=1, keepdims=True))
+        logits_y_z = logits_joint - logits_z
         return logits_y_z
 
     @staticmethod
