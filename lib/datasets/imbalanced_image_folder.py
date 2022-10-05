@@ -1,6 +1,7 @@
 from random import Random
 from typing import List, Tuple, Dict, Optional, Callable
 
+import numpy as np
 from torchvision.datasets import ImageFolder
 from torchvision.datasets.folder import find_classes, make_dataset
 
@@ -10,7 +11,7 @@ class ImbalancedImageFolder(ImageFolder):
         self, root: str, class_weights: Dict[str, float], seed: int = 0, *args, **kwargs
     ):
 
-        if sum(class_weights.values()) != 1:
+        if not np.isclose(sum(class_weights.values()), 1):
             raise ValueError("Class weights do not sum to 1")
 
         for v in class_weights.values():
