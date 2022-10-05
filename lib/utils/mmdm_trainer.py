@@ -44,7 +44,7 @@ def train(
         if use_hsic:
             hsic_loss = hsic_residuals(residuals, targets, featurewise=False)
         else:
-            hsic_loss = -1
+            hsic_loss = hsic_residuals(residuals, targets, featurewise=False).item()
 
         if use_hsic:
             loss = mmdm_optim.lagrangian(
