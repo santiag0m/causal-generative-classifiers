@@ -49,7 +49,7 @@ class CGCResidual(nn.Module):
         z = self.get_features(x)
         residuals = self.get_residuals(z)
         logits_y_z = self.classify_residuals(residuals, detach_residual)
-        return residuals, logits_y_z
+        return logits_y_z
 
     def get_residual_densities(self, x: torch.Tensor) -> torch.Tensor:
         z = self.get_features(x)
