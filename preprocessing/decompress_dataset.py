@@ -26,7 +26,9 @@ def iterate_dataset(name: str, root: str, out_folder: str, train: bool):
         if not os.path.isdir(class_folder):
             os.makedirs(class_folder)
 
-        image = image.convert("L")
+        if name == "mnist":
+            image = image.convert("L")
+
         image.save(os.path.join(class_folder, f"{idx:05d}.jpg"))
 
 
