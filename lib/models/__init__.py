@@ -4,6 +4,7 @@ from .cnn import CNNBackbone
 from .mlp import MLPBackbone
 from .cgc_residual import CGCResidual
 from .cgc_kde import CGCKDE
+from .dot_classifier import DotClassifier
 
 
 def get_backbone(
