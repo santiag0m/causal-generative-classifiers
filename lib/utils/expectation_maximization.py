@@ -1,7 +1,7 @@
 import torch
 
 
-def expectation_maximization(model, dataloader, num_iterations=5, eps=1e-6):
+def expectation_maximization(model, dataloader, num_iterations=20, eps=1e-6):
     if num_iterations < 1:
         raise ValueError("At least one (1) iteration is required")
 

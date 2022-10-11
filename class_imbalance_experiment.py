@@ -10,10 +10,11 @@ from torch.optim import SGD
 import matplotlib.pyplot as plt
 from torchvision import transforms
 from torch.utils.data import DataLoader, random_split
+from torchvision.transforms.functional import InterpolationMode
 
 from lib.utils.ce_trainer import train, eval
 from lib.datasets import ImbalancedImageFolder
-from lib.models import get_backbone, CGCResidual
+from lib.models import get_backbone, CGCResidual, DotClassifier
 from lib.utils.expectation_maximization import expectation_maximization
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
@@ -26,6 +27,7 @@ transform = transforms.Compose(
     [
         transforms.Grayscale(),
         transforms.ToTensor(),
+        transforms.Resize((28, 28), InterpolationMode.NEAREST),
         transforms.Normalize((0.1307,), (0.3081,)),
     ]
 )
@@ -41,9 +43,14 @@ def generate_random_weights():
 
 
 def generate_class_unbalance():
-    weights = torch.softmax(
-        torch.tensor([2, 2, 2, 2, 2, 1, 1, 1, 1, 1], dtype=torch.float32), 0
-    )
+    ratios = torch.tensor([100] * 9 + [1], dtype=torch.float32)
+    weights = ratios / torch.sum(ratios)
+    return {str(i): weights[i] for i in range(NUM_CLASSES)}
+
+
+def generate_single_class():
+    ratios = torch.tensor([0] * 9 + [1], dtype=torch.float32)
+    weights = ratios / torch.sum(ratios)
     return {str(i): weights[i] for i in range(NUM_CLASSES)}
 
 
@@ -54,16 +61,21 @@ def experiment(
     cnn: bool = False,
     mlp_layers: List[int] = [],
     spectral_norm: bool = False,
-    only_cross_entropy: bool = False,
     verbose: bool = True,
     seed: int = 0,
+    use_residual: bool = False,
     **kwargs,
 ):
     torch.manual_seed(seed)
     backbone = get_backbone(cnn=cnn, mlp_layers=mlp_layers, spectral_norm=spectral_norm)
-    model = CGCResidual(
-        backbone, NUM_CLASSES, spectral_norm=spectral_norm, num_layers=1
-    )
+
+    if use_residual:
+        print("Using residual")
+        model = CGCResidual(
+            backbone, NUM_CLASSES, spectral_norm=spectral_norm, num_layers=1
+        )
+    else:
+        model = DotClassifier(backbone, NUM_CLASSES, num_layers=1)
     model.to(DEVICE)
 
     # Create Datasets
@@ -78,7 +90,7 @@ def experiment(
     )
     target_dataset = ImbalancedImageFolder(
         "data/class_mnist/test",
-        class_weights=generate_uniform_weights(),
+        class_weights=generate_single_class(),
         seed=seed,
         transform=transform,
     )
@@ -86,8 +98,9 @@ def experiment(
     val_dataloader = DataLoader(val_dataset, batch_size=batch_size)
     target_dataloader = DataLoader(target_dataset, batch_size=batch_size)
 
-    # Fit class priors before training
-    model.fit_class_probs(train_dataloader)
+    if use_residual:
+        # Fit class priors before training
+        model.fit_class_probs(train_dataloader)
 
     # Train
     train_history = {"cross_entropy": []}
@@ -116,7 +129,7 @@ def experiment(
             best_loss = val_accuracy
 
     # Adjust marginal
-    if not only_cross_entropy:
+    if use_residual:
         _, y_marginal = expectation_maximization(model, target_dataloader)
         print(y_marginal)
         model.class_probs.copy_(y_marginal)
@@ -202,10 +215,10 @@ def plot_results(df: pd.DataFrame, title: str = ""):
 def main(
     num_trials: int = 20,
     num_epochs: int = 10,
-    batch_size: int = 16,
+    batch_size: int = 32,
     learning_rate: float = 5e-2,
     spectral_norm: bool = False,
-    only_cross_entropy: bool = False,
+    use_residual: bool = False,
 ):
     models = [
         {"model_name": "CNN", "cnn": True},
@@ -224,7 +237,7 @@ def main(
             "batch_size": batch_size,
             "learning_rate": learning_rate,
             "spectral_norm": spectral_norm,
-            "only_cross_entropy": only_cross_entropy,
+            "use_residual": use_residual,
         }
         experiment_config = {**experiment_config, **model_config}
         exp_results = multiple_trials(
@@ -233,10 +246,10 @@ def main(
         results.append(exp_results)
     results = group_results(results)
     results["loss_criterion"] = "HSIC Classification"
-    if only_cross_entropy:
-        results.to_csv("mmdm_results_ce.csv", index=False)
+    if use_residual:
+        results.to_csv("ce_results_residual.csv", index=False)
     else:
-        results.to_csv("mmdm_results.csv", index=False)
+        results.to_csv("ce_results.csv", index=False)
     plot_results(results)
 
 
@@ -244,7 +257,7 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description="Experiment setup")
-    parser.add_argument("--only_cross_entropy", action="store_true")
+    parser.add_argument("--use_residual", action="store_true")
     parser.add_argument("--spectral_norm", action="store_true")
     args = parser.parse_args()
-    main(only_cross_entropy=args.only_cross_entropy, spectral_norm=args.spectral_norm)
+    main(use_residual=args.use_residual, spectral_norm=args.spectral_norm)
