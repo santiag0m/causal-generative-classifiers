@@ -26,7 +26,9 @@ class CGCResidual(nn.Module):
         self.eps = eps
         self.spectral_norm = spectral_norm
 
-        self.class_prototypes = nn.Linear(self.num_classes, self.hidden_dim)
+        self.class_prototypes = nn.Parameter(
+            torch.randn((self.num_classes, self.hidden_dim))
+        )
 
         self.residual_classifier = nn.Sequential(
             *[
@@ -64,7 +66,7 @@ class CGCResidual(nn.Module):
 
     def get_residuals(self, observed_features: torch.Tensor) -> torch.Tensor:
         residuals = (
-            observed_features[:, None, :] - self.class_prototypes.weight[None, ...]
+            observed_features[:, None, :] - self.class_prototypes[None, ...]
         )  # (Batch, Class, Features)
         return residuals
 
