@@ -6,14 +6,14 @@ from tqdm import tqdm
 from torch.utils.data import DataLoader
 from torch.nn.utils.parametrizations import spectral_norm
 
-from .cnn import CNNBackbone
+from .mnist_cnn import MNISTBackbone
 from .mlp import MLPBackbone
 
 
 class CGCResidual(nn.Module):
     def __init__(
         self,
-        backbone: Union[CNNBackbone, MLPBackbone],
+        backbone: Union[MNISTBackbone, MLPBackbone],
         num_classes: int = 10,
         num_layers: int = 1,
         eps: float = 1e-6,
@@ -26,9 +26,7 @@ class CGCResidual(nn.Module):
         self.eps = eps
         self.spectral_norm = spectral_norm
 
-        self.class_prototypes = self._spectral_norm(
-            nn.Linear(self.num_classes, self.hidden_dim)
-        )
+        self.class_prototypes = nn.Linear(self.num_classes, self.hidden_dim)
 
         self.residual_classifier = nn.Sequential(
             *[

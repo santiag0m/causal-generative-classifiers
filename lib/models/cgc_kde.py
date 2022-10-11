@@ -6,13 +6,13 @@ from tqdm import tqdm
 from torch.utils.data import DataLoader
 from sklearn.neighbors import KernelDensity
 
-from .cnn import CNNBackbone
+from .mnist_cnn import MNISTBackbone
 from .mlp import MLPBackbone
 
 
 class CGCKDE(nn.Module):
     def __init__(
-        self, backbone: Union[CNNBackbone, MLPBackbone], num_classes: int = 10
+        self, backbone: Union[MNISTBackbone, MLPBackbone], num_classes: int = 10
     ):
         super().__init__()
         self.num_classes = num_classes

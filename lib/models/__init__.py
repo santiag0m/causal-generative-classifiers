@@ -1,31 +1,20 @@
 from typing import List, Union
 
-from .cnn import CNNBackbone
-from .mlp import MLPBackbone
+from .cifar10_cnn import CIFAR10Backbone
+from .mnist_cnn import MNISTBackbone
 from .cgc_residual import CGCResidual
 from .cgc_kde import CGCKDE
 from .dot_classifier import DotClassifier
 
 
 def get_backbone(
-    cnn: bool = False,
-    in_channels: int = 1,
-    in_features: int = 28 * 28,
-    mlp_layers: List[int] = [],
-    spectral_norm: bool = False,
-) -> Union[MLPBackbone, CNNBackbone]:
+    model_name: str = "mnist",
+) -> Union[MNISTBackbone, CIFAR10Backbone]:
     # Init model
-    if cnn:
-        if mlp_layers:
-            raise ValueError(
-                "Conflicting models. Either set `cnn` to false or `mlp_layers` to `[]`"
-            )
-        model = CNNBackbone(
-            in_channels=in_channels,
-            spectral_norm=spectral_norm,
-        )
-    elif mlp_layers:
-        model = MLPBackbone(in_features=in_features, layers=mlp_layers)
+    if model_name == "mnist":
+        model = MNISTBackbone()
+    elif model_name == "cifar10":
+        model = CIFAR10Backbone()
     else:
         raise ValueError(
             "No model parameters were provided, please provide values "

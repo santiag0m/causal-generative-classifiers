@@ -3,7 +3,7 @@ import torch.nn as nn
 from torch.nn.utils.parametrizations import spectral_norm
 
 
-class CNNBackbone(nn.Module):
+class MNISTBackbone(nn.Module):
     def __init__(
         self, in_channels: int = 1, out_features: int = 10, spectral_norm: bool = False
     ):

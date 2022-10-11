@@ -23,15 +23,6 @@ NUM_CLASSES = 10
 
 TRIAL_FOLDER = "trial_results"
 
-transform = transforms.Compose(
-    [
-        transforms.Grayscale(),
-        transforms.ToTensor(),
-        transforms.Resize((28, 28), InterpolationMode.NEAREST),
-        transforms.Normalize((0.1307,), (0.3081,)),
-    ]
-)
-
 
 def generate_uniform_weights():
     return {str(i): 1.0 / NUM_CLASSES for i in range(NUM_CLASSES)}
@@ -58,8 +49,7 @@ def experiment(
     batch_size: int,
     learning_rate: float,
     num_epochs: int,
-    cnn: bool = False,
-    mlp_layers: List[int] = [],
+    cifar10: bool = False,
     spectral_norm: bool = False,
     verbose: bool = True,
     seed: int = 0,
@@ -67,7 +57,25 @@ def experiment(
     **kwargs,
 ):
     torch.manual_seed(seed)
-    backbone = get_backbone(cnn=cnn, mlp_layers=mlp_layers, spectral_norm=spectral_norm)
+
+    if cifar10:
+        model_name = "cifar10"
+        transform = transforms.Compose(
+            [
+                transforms.ToTensor(),
+                transforms.Normalize((0.1307,), (0.3081,)),
+            ]
+        )
+    else:
+        model_name = "mnist"
+        transform = transforms.Compose(
+            [
+                transforms.Grayscale(),
+                transforms.ToTensor(),
+                transforms.Normalize((0.1307,), (0.3081,)),
+            ]
+        )
+    backbone = get_backbone(model_name=model_name)
 
     if use_residual:
         print("Using residual")
@@ -80,7 +88,7 @@ def experiment(
 
     # Create Datasets
     source_dataset = ImbalancedImageFolder(
-        "data/class_mnist/train",
+        f"data/class_{model_name}/train",
         class_weights=generate_class_unbalance(),
         seed=seed,
         transform=transform,
@@ -89,7 +97,7 @@ def experiment(
         source_dataset, [10_000, 1_000, len(source_dataset) - 11_000]
     )
     target_dataset = ImbalancedImageFolder(
-        "data/class_mnist/test",
+        f"data/class_{model_name}/test",
         class_weights=generate_single_class(),
         seed=seed,
         transform=transform,
@@ -190,54 +198,36 @@ def group_results(results: List[Dict]) -> pd.DataFrame:
     df_list = []
     for key in keys:
         df = pd.concat([exp_res[key] for exp_res in results], axis=1)
-        df = (
-            df.stack()
-            .rename("Accuracy")
-            .rename_axis(index=["exp", "model_name"])
-            .reset_index()
-        )
-        df["model_name"] = df["model_name"].apply(lambda x: x + f"_{key}")
+        df = df.stack().rename("Accuracy").rename_axis(index=["exp"]).reset_index()
+        df["setting"] = key
         df_list.append(df)
     df = pd.concat(df_list)
 
     return df
 
 
-def plot_results(df: pd.DataFrame, title: str = ""):
-    plt.ion()
-
-    ax = sns.boxplot(x="Accuracy", y="model_name", hue="loss_criterion", data=df)
-    ax.set(xscale="log")
-    ax.set_title(title)
-    ax.set_xscale("linear")
-
-
 def main(
+    cifar10: bool = True,
     num_trials: int = 20,
     num_epochs: int = 10,
     batch_size: int = 32,
     learning_rate: float = 5e-2,
-    spectral_norm: bool = False,
     use_residual: bool = False,
+    spectral_norm: bool = False,
 ):
     models = [
         {"model_name": "CNN", "cnn": True},
-        # {"model_name": "MLP 2x256", "mlp_layers": [256, 256, 10]},
-        # {"model_name": "MLP 2x524", "mlp_layers": [524, 524, 10]},
-        # {"model_name": "MLP 2x1024", "mlp_layers": [1024, 1024, 10]},
-        # {"model_name": "MLP 4x256", "mlp_layers": [256, 256, 256, 256, 10]},
-        # {"model_name": "MLP 4x524", "mlp_layers": [524, 524, 524, 524, 10]},
-        # {"model_name": "MLP 4x1024", "mlp_layers": [1024, 1024, 1024, 1024, 10]},
     ]
 
     results = []
     for model_config in models:
         experiment_config = {
+            "cifar10": cifar10,
             "num_epochs": num_epochs,
             "batch_size": batch_size,
             "learning_rate": learning_rate,
-            "spectral_norm": spectral_norm,
             "use_residual": use_residual,
+            "spectral_norm": spectral_norm,
         }
         experiment_config = {**experiment_config, **model_config}
         exp_results = multiple_trials(
@@ -245,12 +235,10 @@ def main(
         )
         results.append(exp_results)
     results = group_results(results)
-    results["loss_criterion"] = "HSIC Classification"
     if use_residual:
         results.to_csv("ce_results_residual.csv", index=False)
     else:
         results.to_csv("ce_results.csv", index=False)
-    plot_results(results)
 
 
 if __name__ == "__main__":
