@@ -5,12 +5,9 @@ from typing import List, Dict
 
 import torch
 import pandas as pd
-import seaborn as sns
 from torch.optim import SGD
-import matplotlib.pyplot as plt
 from torchvision import transforms
 from torch.utils.data import DataLoader, random_split
-from torchvision.transforms.functional import InterpolationMode
 
 from lib.utils.ce_trainer import train, eval
 from lib.datasets import ImbalancedImageFolder
@@ -34,21 +31,19 @@ def generate_random_weights():
 
 
 def generate_class_unbalance():
-    ratios = torch.tensor([100] * 9 + [1], dtype=torch.float32)
+    ratios = torch.tensor([1] + [100] * 9, dtype=torch.float32)
     weights = ratios / torch.sum(ratios)
     return {str(i): weights[i] for i in range(NUM_CLASSES)}
 
 
 def generate_single_class():
-    ratios = torch.tensor([0] * 9 + [1], dtype=torch.float32)
+    ratios = torch.tensor([1] + [0] * 9, dtype=torch.float32)
     weights = ratios / torch.sum(ratios)
     return {str(i): weights[i] for i in range(NUM_CLASSES)}
 
 
 def experiment(
-    batch_size: int,
-    learning_rate: float,
-    num_epochs: int,
+    hidden_dim: int = 10,
     cifar10: bool = False,
     spectral_norm: bool = False,
     verbose: bool = True,
@@ -59,14 +54,24 @@ def experiment(
     torch.manual_seed(seed)
 
     if cifar10:
+        epochs = 50
+        learning_rate = 0.01
+        batch_size = 128
+        weight_decay = 0.0001
+        momentum = 0.9
         model_name = "cifar10"
         transform = transforms.Compose(
             [
                 transforms.ToTensor(),
-                transforms.Normalize((0.1307,), (0.3081,)),
+                transforms.Normalize((0.4914, 0.4822, 0.4465), (0.247, 0.243, 0.261)),
             ]
         )
     else:
+        epochs = 20
+        learning_rate = 5e-2
+        batch_size = 32
+        weight_decay = 0
+        momentum = 0
         model_name = "mnist"
         transform = transforms.Compose(
             [
@@ -75,7 +80,7 @@ def experiment(
                 transforms.Normalize((0.1307,), (0.3081,)),
             ]
         )
-    backbone = get_backbone(model_name=model_name)
+    backbone = get_backbone(model_name=model_name, hidden_dim=hidden_dim)
 
     if use_residual:
         print("Using residual")
@@ -115,13 +120,18 @@ def experiment(
     val_history = {"cross_entropy": []}
     best_loss = 1e10
 
-    for epoch_idx in range(num_epochs):
+    for epoch_idx in range(epochs):
         if verbose:
             print(f"\nEpoch {epoch_idx}")
         train_ce_loss, train_accuracy = train(
             model=model,
             dataloader=train_dataloader,
-            optim=SGD(model.parameters(), lr=learning_rate),
+            optim=SGD(
+                model.parameters(),
+                lr=learning_rate,
+                momentum=momentum,
+                weight_decay=weight_decay,
+            ),
             use_pbar=verbose,
         )
         val_ce_loss, val_accuracy = eval(
@@ -170,7 +180,7 @@ def multiple_trials(experiment_config: Dict, num_trials: int) -> Dict:
     results = []
     for i in range(num_trials):
         print(f"Experiment {i+1}/{num_trials}")
-        trial_results = experiment(**experiment_config, seed=i)
+        trial_results = experiment(**experiment_config, seed=3)
         results.append(trial_results)
         with open(os.path.join(TRIAL_FOLDER, f"trial_{i:03d}.json"), "w") as f:
             json.dump(trial_results, f)
@@ -183,7 +193,9 @@ def multiple_trials(experiment_config: Dict, num_trials: int) -> Dict:
         "train": pd.Series(train_accuracy)
         .fillna(0)
         .rename(experiment_config["model_name"]),
-        # "val": pd.Series(val_accuracy).fillna(0).rename(experiment_config["model_name"]),
+        "val": pd.Series(val_accuracy)
+        .fillna(0)
+        .rename(experiment_config["model_name"]),
         "target": pd.Series(target_accuracy)
         .fillna(0)
         .rename(experiment_config["model_name"]),
@@ -198,7 +210,12 @@ def group_results(results: List[Dict]) -> pd.DataFrame:
     df_list = []
     for key in keys:
         df = pd.concat([exp_res[key] for exp_res in results], axis=1)
-        df = df.stack().rename("Accuracy").rename_axis(index=["exp"]).reset_index()
+        df = (
+            df.stack()
+            .rename("Accuracy")
+            .rename_axis(index=["exp", "model_name"])
+            .reset_index()
+        )
         df["setting"] = key
         df_list.append(df)
     df = pd.concat(df_list)
@@ -208,10 +225,8 @@ def group_results(results: List[Dict]) -> pd.DataFrame:
 
 def main(
     cifar10: bool = True,
+    hidden_dim: int = 10,
     num_trials: int = 20,
-    num_epochs: int = 10,
-    batch_size: int = 32,
-    learning_rate: float = 5e-2,
     use_residual: bool = False,
     spectral_norm: bool = False,
 ):
@@ -223,11 +238,9 @@ def main(
     for model_config in models:
         experiment_config = {
             "cifar10": cifar10,
-            "num_epochs": num_epochs,
-            "batch_size": batch_size,
-            "learning_rate": learning_rate,
             "use_residual": use_residual,
             "spectral_norm": spectral_norm,
+            "hidden_dim": hidden_dim,
         }
         experiment_config = {**experiment_config, **model_config}
         exp_results = multiple_trials(
