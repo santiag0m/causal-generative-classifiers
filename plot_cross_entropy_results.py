@@ -1,19 +1,24 @@
 import matplotlib.pyplot as plt
 import pandas as pd
 
+import seaborn as sns
+
 
 def format_dataframe(df: pd.DataFrame) -> pd.DataFrame:
-    train_df = df.query("model_name == 'CNN_train'").set_index("exp")[["Accuracy"]]
-    target_df = df.query("model_name == 'CNN_target'").set_index("exp")[["Accuracy"]]
-    df = train_df.join(target_df, lsuffix="_Train", rsuffix="_Target").reset_index()
+    train_df = df.query("setting == 'train'")[["exp", "Accuracy", "setting"]]
+    val_df = df.query("setting == 'val'")[["exp", "Accuracy", "setting"]]
+    target_df = df.query("setting == 'target'")[["exp", "Accuracy", "setting"]]
+    df = pd.concat([train_df, val_df, target_df], axis=0).reset_index()
     return df
 
 
 if __name__ == "__main__":
-    df_control = format_dataframe(pd.read_csv("ce_results.csv"))
-    df_residual = format_dataframe(pd.read_csv("ce_results_residual.csv"))
+    df_control = format_dataframe(pd.read_csv("cifar10_ce_results.csv"))
+    df_residual = format_dataframe(pd.read_csv("cifar10_ce_results_residual.csv"))
 
     plt.ion()
-    f, ax = plt.subplots()
-    ax.scatter(df_control["Accuracy_Train"], df_control["Accuracy_Target"], c="blue")
-    ax.scatter(df_residual["Accuracy_Train"], df_residual["Accuracy_Target"], c="green")
+    df_control["model"] = "dot product"
+    df_residual["model"] = "residual + CGC"
+    df = pd.concat([df_control, df_residual], axis=0)
+
+    sns.boxplot(data=df, x="Accuracy", y="setting", hue="model")
