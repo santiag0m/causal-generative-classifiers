@@ -180,7 +180,7 @@ def multiple_trials(experiment_config: Dict, num_trials: int) -> Dict:
     results = []
     for i in range(num_trials):
         print(f"Experiment {i+1}/{num_trials}")
-        trial_results = experiment(**experiment_config, seed=3)
+        trial_results = experiment(**experiment_config, seed=i)
         results.append(trial_results)
         with open(os.path.join(TRIAL_FOLDER, f"trial_{i:03d}.json"), "w") as f:
             json.dump(trial_results, f)
@@ -224,7 +224,7 @@ def group_results(results: List[Dict]) -> pd.DataFrame:
 
 
 def main(
-    cifar10: bool = True,
+    cifar10: bool = False,
     hidden_dim: int = 10,
     num_trials: int = 20,
     use_residual: bool = False,
