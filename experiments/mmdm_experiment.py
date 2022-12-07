@@ -19,7 +19,7 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 NUM_CLASSES = 10
 
-TRIAL_FOLDER = "trial_results"
+TRIAL_FOLDER = "mmdm_trial_results"
 
 
 def experiment(
