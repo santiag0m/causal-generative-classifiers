@@ -38,6 +38,9 @@ class CGCResidual(nn.Module):
             * num_layers,
             self._spectral_norm(nn.Linear(self.hidden_dim, 1)),
         )
+
+        self.bn = nn.BatchNorm1d(self.hidden_dim)
+
         self.class_probs = nn.Parameter(
             torch.zeros((self.num_classes,)), requires_grad=False
         )
@@ -68,6 +71,10 @@ class CGCResidual(nn.Module):
         residuals = (
             observed_features[:, None, :] - self.class_prototypes[None, ...]
         )  # (Batch, Class, Features)
+        shape = residuals.shape
+        residuals = residuals.reshape(-1, self.hidden_dim)
+        residuals = self.bn(residuals)
+        residuals.reshape(*shape)
         return residuals
 
     def classify_residuals(self, residuals: torch.Tensor) -> Tuple[torch.Tensor]:
