@@ -11,6 +11,7 @@ cls_results.csv
 trial_results*/
 class_imbalance_results/
 *.csv
+*.json
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
