@@ -9,6 +9,7 @@ import pandas as pd
 from torch.utils.data import DataLoader, random_split
 
 from lib.losses import HSIC
+from lib.utils import label_shift
 from lib.utils.hsic_trainer import train, eval
 from lib.datasets import ImbalancedImageFolder
 from lib.utils.accuracy import compute_accuracy
@@ -21,20 +22,10 @@ NUM_CLASSES = 10
 
 TRIAL_FOLDER = "hsic_trial_results"
 
-def generate_class_unbalance():
-    ratios = torch.tensor([1] + [100] * 9, dtype=torch.float32)
-    weights = ratios / torch.sum(ratios)
-    return {str(i): weights[i] for i in range(NUM_CLASSES)}
 
-
-def generate_single_class():
-    ratios = torch.tensor([1] + [0] * 9, dtype=torch.float32)
-    weights = ratios / torch.sum(ratios)
-    return {str(i): weights[i] for i in range(NUM_CLASSES)}
-
-
-
-def hsic_one_hot(inputs: torch.tensor, preds: torch.tensor, targets: torch.tensor) -> torch.Tensor:
+def hsic_one_hot(
+    inputs: torch.tensor, preds: torch.tensor, targets: torch.tensor
+) -> torch.Tensor:
     targets = torch.nn.functional.one_hot(targets, num_classes=NUM_CLASSES).float()
     targets = targets.to(preds.device)
     residuals = targets - preds
@@ -79,26 +70,20 @@ def experiment(
             ]
         )
     model = get_backbone(model_name=model_name, hidden_dim=hidden_dim)
-    
+
     if cifar10:
-        model = torch.nn.Sequential(
-            model,
-            torch.nn.Linear(model.out_features, 10)
-        )
-    
+        model = torch.nn.Sequential(model, torch.nn.Linear(model.out_features, 10))
+
     if use_softmax:
-        model = torch.nn.Sequential(
-            model,
-            torch.nn.Softmax(dim=-1)
-        )
+        model = torch.nn.Sequential(model, torch.nn.Softmax(dim=-1))
         print("--- Using softmax ---")
-    
+
     model.to(DEVICE)
 
     # Create Datasets
     source_dataset = ImbalancedImageFolder(
         f"data/class_{model_name}/train",
-        class_weights=generate_class_unbalance(),
+        class_weights=label_shift.generate_class_unbalance(NUM_CLASSES),
         seed=seed,
         transform=transform,
     )
@@ -107,7 +92,7 @@ def experiment(
     )
     target_dataset = ImbalancedImageFolder(
         f"data/class_{model_name}/test",
-        class_weights=generate_single_class(),
+        class_weights=label_shift.generate_single_class(NUM_CLASSES),
         seed=seed,
         transform=transform,
     )
@@ -117,9 +102,9 @@ def experiment(
 
     # Setup Optimizer
     optim = torch.optim.Adam(
-                model.parameters(),
-                lr=learning_rate,
-            )
+        model.parameters(),
+        lr=learning_rate,
+    )
 
     # Train
     train_history = []
@@ -238,7 +223,7 @@ def main(
         experiment_config = {
             "cifar10": cifar10,
             "hidden_dim": hidden_dim,
-            "use_softmax": use_softmax
+            "use_softmax": use_softmax,
         }
         experiment_config = {**experiment_config, **model_config}
         exp_results = multiple_trials(

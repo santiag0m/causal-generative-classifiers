@@ -9,6 +9,7 @@ from torch.optim import SGD
 from torchvision import transforms
 from torch.utils.data import DataLoader, random_split
 
+from lib.utils import label_shift
 from lib.utils.ce_trainer import train, eval
 from lib.datasets import ImbalancedImageFolder
 from lib.models import get_backbone, CGCResidual, DotClassifier
@@ -19,27 +20,6 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 NUM_CLASSES = 10
 
 TRIAL_FOLDER = "trial_results"
-
-
-def generate_uniform_weights():
-    return {str(i): 1.0 / NUM_CLASSES for i in range(NUM_CLASSES)}
-
-
-def generate_random_weights():
-    weights = torch.softmax(torch.randn(NUM_CLASSES), 0)
-    return {str(i): weights[i] for i in range(NUM_CLASSES)}
-
-
-def generate_class_unbalance():
-    ratios = torch.tensor([1] + [100] * 9, dtype=torch.float32)
-    weights = ratios / torch.sum(ratios)
-    return {str(i): weights[i] for i in range(NUM_CLASSES)}
-
-
-def generate_single_class():
-    ratios = torch.tensor([1] + [0] * 9, dtype=torch.float32)
-    weights = ratios / torch.sum(ratios)
-    return {str(i): weights[i] for i in range(NUM_CLASSES)}
 
 
 def experiment(
@@ -94,7 +74,7 @@ def experiment(
     # Create Datasets
     source_dataset = ImbalancedImageFolder(
         f"data/class_{model_name}/train",
-        class_weights=generate_class_unbalance(),
+        class_weights=label_shift.generate_class_unbalance(NUM_CLASSES),
         seed=seed,
         transform=transform,
     )
@@ -103,7 +83,7 @@ def experiment(
     )
     target_dataset = ImbalancedImageFolder(
         f"data/class_{model_name}/test",
-        class_weights=generate_single_class(),
+        class_weights=label_shift.generate_single_class(NUM_CLASSES),
         seed=seed,
         transform=transform,
     )
