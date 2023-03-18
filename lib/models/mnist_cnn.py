@@ -5,12 +5,13 @@ from torch.nn.utils.parametrizations import spectral_norm
 
 class MNISTBackbone(nn.Module):
     def __init__(
-        self, in_channels: int = 1, out_features: int = 10, spectral_norm: bool = False
+        self, in_channels: int = 1, out_features: int = 10, spectral_norm: bool = False, leaky_relu: bool = False
     ):
         super().__init__()
 
         self.out_features = out_features
         self.spectral_norm = spectral_norm
+        self.leaky_relu = leaky_relu
 
         self.conv_1 = self._spectral_norm(
             nn.Conv2d(
@@ -33,7 +34,7 @@ class MNISTBackbone(nn.Module):
             nn.Linear(in_features=524, out_features=out_features)
         )
 
-        self.relu = nn.ReLU()
+        self.relu = nn.LeakyReLU() if leaky_relu else nn.ReLU()
         self.pool = nn.MaxPool2d(kernel_size=2, stride=2)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
