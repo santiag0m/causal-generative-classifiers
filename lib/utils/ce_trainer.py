@@ -1,3 +1,5 @@
+from typing import Optional
+
 import torch
 import torch.nn as nn
 from tqdm import tqdm
@@ -13,6 +15,7 @@ def train(
     dataloader: DataLoader,
     optim: torch.optim.Optimizer,
     use_pbar: bool = False,
+    class_weights: Optional[torch.Tensor] = None,
 ) -> float:
     model.train()
     device = next(model.parameters()).device
@@ -31,7 +34,7 @@ def train(
 
         logits = model(inputs)
 
-        ce_loss = cross_entropy(logits, targets)
+        ce_loss = cross_entropy(logits, targets, weight=class_weights)
 
         ce_loss.backward()
         optim.step()
@@ -55,6 +58,7 @@ def eval(
     model: nn.Module,
     dataloader: DataLoader,
     use_pbar: bool = False,
+    return_confusion_matrix: bool = False,
 ) -> float:
     model.eval()
     device = next(model.parameters()).device
@@ -67,6 +71,9 @@ def eval(
 
     with torch.no_grad():
         accuracy = RunningAverage()
+
+        confusion_matrix = 0
+
         for idx, (inputs, targets) in pbar:
             inputs = inputs.to(device)
             targets = targets.to(device)
@@ -80,9 +87,22 @@ def eval(
             accuracy.update(correct.cpu())
             avg_acc = accuracy.value
 
+            if return_confusion_matrix:
+                batch_confusion_matrix = torch.sparse_coo_tensor(
+                    indices=torch.stack([preds, targets], dim=1).T,
+                    values=torch.ones(inputs.shape[0], device=preds.device),
+                    size=(logits.shape[-1], logits.shape[-1]),
+                )
+                batch_confusion_matrix = batch_confusion_matrix.coalesce().to_dense()
+                confusion_matrix += batch_confusion_matrix
+
             cum_ce_loss += ce_loss
             avg_ce_loss = cum_ce_loss / (idx + 1)
 
             if use_pbar:
                 pbar.set_description(f"[VAL] {avg_ce_loss=:.3f} {avg_acc=:.3f}")
-    return avg_ce_loss, avg_acc.item()
+
+    if return_confusion_matrix:
+        return avg_ce_loss, avg_acc.item(), confusion_matrix
+    else:
+        return avg_ce_loss, avg_acc.item()
