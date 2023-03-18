@@ -28,20 +28,8 @@ def train(
         optim.zero_grad()
         inputs = inputs.to(device)
         targets = targets.to(device)
-        preds = model(inputs, targets)
-        loss = criterion(preds, targets)
-
-        mapped_feats = model.embedding_layer(targets)
-
-        label_loss = 0
-        num_feats = mapped_feats.shape[-1]
-        for i in range(num_feats):
-            label_loss -= HSIC(
-                mapped_feats[:, [i]],
-                torch.nn.functional.one_hot(targets, num_classes=num_classes).float(),
-            )
-
-        loss = loss + label_loss
+        preds = model(inputs)
+        loss = criterion(inputs, preds, targets)
 
         loss.backward()
         optim.step()
@@ -59,7 +47,6 @@ def eval(
     criterion: Callable,
     dataloader: DataLoader,
     use_pbar: bool = False,
-    num_classes: int = 10,
 ) -> float:
     model.eval()
     device = next(model.parameters()).device
@@ -72,22 +59,8 @@ def eval(
         for idx, (inputs, targets) in pbar:
             inputs = inputs.to(device)
             targets = targets.to(device)
-            preds = model(inputs, targets)
-            loss = criterion(preds, targets)
-
-            mapped_feats = model.embedding_layer(targets)
-
-            label_loss = 0
-            num_feats = mapped_feats.shape[-1]
-            for i in range(num_feats):
-                label_loss -= HSIC(
-                    mapped_feats[:, [i]],
-                    torch.nn.functional.one_hot(
-                        targets, num_classes=num_classes
-                    ).float(),
-                )
-
-            loss = loss + label_loss
+            preds = model(inputs)
+            loss = criterion(inputs, preds, targets)
 
             cum_loss += loss.item()
             avg_loss = cum_loss / (idx + 1)

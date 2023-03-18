@@ -8,7 +8,6 @@ from torchvision import transforms
 import pandas as pd
 from torch.utils.data import DataLoader, random_split
 
-from lib.losses import HSIC
 from lib.utils.hsic_trainer import train, eval
 from lib.datasets import ImbalancedImageFolder
 from lib.utils.accuracy import compute_accuracy
@@ -34,20 +33,16 @@ def generate_single_class():
 
 
 
-def hsic_one_hot(inputs: torch.tensor, preds: torch.tensor, targets: torch.tensor) -> torch.Tensor:
+def mse_one_hot(inputs: torch.tensor, preds: torch.tensor, targets: torch.tensor) -> torch.Tensor:
     targets = torch.nn.functional.one_hot(targets, num_classes=NUM_CLASSES).float()
     targets = targets.to(preds.device)
-    residuals = targets - preds
-
-    inputs = torch.flatten(inputs, start_dim=1)
-
-    loss = HSIC(inputs, residuals)
-    return loss
+    residuals = (targets - preds) ** 2
+    residuals = residuals.sum(dim=-1)
+    return residuals.mean()
 
 
 def experiment(
     hidden_dim: int = 10,
-    use_softmax: bool = False,
     cifar10: bool = False,
     seed: int = 0,
     verbose: bool = True,
@@ -56,9 +51,11 @@ def experiment(
     torch.manual_seed(seed)
 
     if cifar10:
-        epochs = 70
-        learning_rate = 2e-3
+        epochs = 50
+        learning_rate = 0.01
         batch_size = 128
+        weight_decay = 0.0001
+        momentum = 0.9
         model_name = "cifar10"
         transform = transforms.Compose(
             [
@@ -67,9 +64,11 @@ def experiment(
             ]
         )
     else:
-        epochs = 7
-        learning_rate = 1e-3
+        epochs = 20
+        learning_rate = 5e-2
         batch_size = 32
+        weight_decay = 0
+        momentum = 0
         model_name = "mnist"
         transform = transforms.Compose(
             [
@@ -85,13 +84,6 @@ def experiment(
             model,
             torch.nn.Linear(model.out_features, 10)
         )
-    
-    if use_softmax:
-        model = torch.nn.Sequential(
-            model,
-            torch.nn.Softmax(dim=-1)
-        )
-        print("--- Using softmax ---")
     
     model.to(DEVICE)
 
@@ -116,9 +108,11 @@ def experiment(
     target_dataloader = DataLoader(target_dataset, batch_size=batch_size)
 
     # Setup Optimizer
-    optim = torch.optim.Adam(
+    optim = torch.optim.SGD(
                 model.parameters(),
                 lr=learning_rate,
+                momentum=momentum,
+                weight_decay=weight_decay,
             )
 
     # Train
@@ -130,14 +124,14 @@ def experiment(
             print(f"\nEpoch {epoch_idx}")
         train_loss = train(
             model=model,
-            criterion=hsic_one_hot,
+            criterion=mse_one_hot,
             dataloader=train_dataloader,
             optim=optim,
             use_pbar=verbose,
         )
         val_loss = eval(
             model=model,
-            criterion=hsic_one_hot,
+            criterion=mse_one_hot,
             dataloader=val_dataloader,
             use_pbar=verbose,
         )
@@ -222,7 +216,6 @@ def main(
     cifar10: bool = False,
     hidden_dim: int = 10,
     num_trials: int = 20,
-    use_softmax: bool = False,
 ):
     models = [
         {"model_name": "CNN", "cnn": True},
@@ -237,8 +230,7 @@ def main(
     for model_config in models:
         experiment_config = {
             "cifar10": cifar10,
-            "hidden_dim": hidden_dim,
-            "use_softmax": use_softmax
+            "hidden_dim": hidden_dim
         }
         experiment_config = {**experiment_config, **model_config}
         exp_results = multiple_trials(
@@ -246,16 +238,8 @@ def main(
         )
         results.append(exp_results)
     results = group_results(results)
-    if use_softmax:
-        results.to_csv(f"hsic_softmax_results_{suffix}.csv", index=False)
-    else:
-        results.to_csv(f"hsic_results_{suffix}.csv", index=False)
+    results.to_csv(f"l2_results_{suffix}.csv", index=False)
 
 
 if __name__ == "__main__":
-    import argparse
-
-    parser = argparse.ArgumentParser(description="Experiment setup")
-    parser.add_argument("--use_softmax", action="store_true")
-    args = parser.parse_args()
-    main(use_softmax=args.use_softmax)
+    main()
