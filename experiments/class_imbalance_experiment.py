@@ -228,10 +228,16 @@ def main(
         )
         results.append(exp_results)
     results = group_results(results)
-    if use_residual:
-        results.to_csv("ce_results_residual.csv", index=False)
+
+    if cifar10:
+        prefix = "cifar10"
     else:
-        results.to_csv("ce_results.csv", index=False)
+        prefix = "mnist"
+
+    if use_residual:
+        results.to_csv(f"ce_{prefix}_results_residual.csv", index=False)
+    else:
+        results.to_csv(f"ce_{prefix}_results.csv", index=False)
 
 
 if __name__ == "__main__":
@@ -240,5 +246,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Experiment setup")
     parser.add_argument("--use_residual", action="store_true")
     parser.add_argument("--spectral_norm", action="store_true")
+    parser.add_argument("--cifar10", action="store_true")
     args = parser.parse_args()
-    main(use_residual=args.use_residual, spectral_norm=args.spectral_norm)
+    main(cifar10=args.cifar10, use_residual=args.use_residual, spectral_norm=args.spectral_norm)
