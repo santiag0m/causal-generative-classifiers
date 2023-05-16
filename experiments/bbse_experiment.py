@@ -18,8 +18,6 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 NUM_CLASSES = 10
 
-TRIAL_FOLDER = "trial_results"
-
 
 def experiment(
     hidden_dim: int = 10,
@@ -85,11 +83,11 @@ def experiment(
         seed=seed,
         transform=transform,
     )
-    train_1_dataloader = DataLoader(train_split_1, batch_size=batch_size)
-    train_2_dataloader = DataLoader(train_split_2, batch_size=batch_size)
-    train_dataloader = DataLoader(train_dataset, batch_size=batch_size)
-    val_dataloader = DataLoader(val_dataset, batch_size=batch_size)
-    target_dataloader = DataLoader(target_dataset, batch_size=batch_size)
+    train_1_dataloader = DataLoader(train_split_1, batch_size=batch_size, num_workers=2)
+    train_2_dataloader = DataLoader(train_split_2, batch_size=batch_size, num_workers=2)
+    train_dataloader = DataLoader(train_dataset, batch_size=batch_size, num_workers=2)
+    val_dataloader = DataLoader(val_dataset, batch_size=batch_size, num_workers=2)
+    target_dataloader = DataLoader(target_dataset, batch_size=batch_size, num_workers=2)
 
     # Train on first split
     train_history = {"cross_entropy": []}
@@ -99,7 +97,7 @@ def experiment(
     for epoch_idx in range(epochs):
         if verbose:
             print(f"\nEpoch {epoch_idx}")
-        train_ce_loss, train_accuracy = train(
+        _, train_ce_loss, train_accuracy = train(
             model=model,
             dataloader=train_1_dataloader,
             optim=SGD(
@@ -110,7 +108,7 @@ def experiment(
             ),
             use_pbar=verbose,
         )
-        val_ce_loss, val_accuracy = eval(
+        _, val_ce_loss, val_accuracy = eval(
             model=model,
             dataloader=val_dataloader,
             use_pbar=verbose,
@@ -123,14 +121,14 @@ def experiment(
             best_loss = val_accuracy
 
     # Calculate confusion matrix on second split
-    _, _, confusion_matrix_train = eval(
+    _, _, _, confusion_matrix_train = eval(
         model=model,
         dataloader=train_2_dataloader,
         use_pbar=verbose,
         return_confusion_matrix=True,
     )
     # Calculate preidiction rates on target
-    _, _, confusion_matrix_target = eval(
+    _, _, _, confusion_matrix_target = eval(
         model=model,
         dataloader=target_dataloader,
         use_pbar=verbose,
@@ -156,7 +154,7 @@ def experiment(
     for epoch_idx in range(epochs):
         if verbose:
             print(f"\nEpoch {epoch_idx}")
-        train_ce_loss, train_accuracy = train(
+        _, train_ce_loss, train_accuracy = train(
             model=model,
             dataloader=train_dataloader,
             optim=SGD(
@@ -166,9 +164,9 @@ def experiment(
                 weight_decay=weight_decay,
             ),
             use_pbar=verbose,
-            class_weights=class_weights,
+            class_weights=class_weights[:, 0],
         )
-        val_ce_loss, val_accuracy = eval(
+        _, val_ce_loss, val_accuracy = eval(
             model=model,
             dataloader=val_dataloader,
             use_pbar=verbose,
@@ -181,7 +179,7 @@ def experiment(
             best_loss = val_accuracy
 
     # Check accuracy
-    target_ce_loss, target_accuracy = eval(
+    _, target_ce_loss, target_accuracy = eval(
         model=model,
         dataloader=target_dataloader,
         use_pbar=verbose,
@@ -200,17 +198,19 @@ def experiment(
     return results
 
 
-def multiple_trials(experiment_config: Dict, num_trials: int) -> Dict:
-    if os.path.isdir(TRIAL_FOLDER):
-        shutil.rmtree(TRIAL_FOLDER)
-    os.makedirs(TRIAL_FOLDER)
+def multiple_trials(
+    experiment_config: Dict, num_trials: int, trial_folder: str
+) -> Dict:
+    if os.path.isdir(trial_folder):
+        shutil.rmtree(trial_folder)
+    os.makedirs(trial_folder)
 
     results = []
     for i in range(num_trials):
         print(f"Experiment {i+1}/{num_trials}")
         trial_results = experiment(**experiment_config, seed=i)
         results.append(trial_results)
-        with open(os.path.join(TRIAL_FOLDER, f"trial_{i:03d}.json"), "w") as f:
+        with open(os.path.join(trial_folder, f"trial_{i:03d}.json"), "w") as f:
             json.dump(trial_results, f)
 
     train_accuracy = [trial["train_accuracy"] for trial in results]
@@ -263,8 +263,10 @@ def main(
 
     if cifar10:
         print("Testing on CIFAR10")
+        suffix = "_cifar10"
     else:
         print("Testing on MNIST")
+        suffix = "_mnist"
 
     results = []
     for model_config in models:
@@ -275,15 +277,14 @@ def main(
         }
         experiment_config = {**experiment_config, **model_config}
         exp_results = multiple_trials(
-            num_trials=num_trials, experiment_config=experiment_config
+            num_trials=num_trials,
+            experiment_config=experiment_config,
+            trial_folder=f"trial_results{suffix}_bbse",
         )
         results.append(exp_results)
     results = group_results(results)
 
-    if cifar10:
-        results.to_csv("bbse_results_cifar10.csv", index=False)
-    else:
-        results.to_csv("bbse_results_mnist.csv", index=False)
+    results.to_csv(f"class_imbalance_results{suffix}_bbse.csv", index=False)
 
 
 if __name__ == "__main__":

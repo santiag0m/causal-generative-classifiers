@@ -59,7 +59,7 @@ def train(
 
         if use_pbar:
             pbar.set_description(f"{avg_ce_loss=:.3f} {avg_acc=:.3f} {avg_hsic=:.3f}")
-    return avg_ce_loss, avg_acc.item(), avg_hsic
+    return avg_hsic, avg_ce_loss, avg_acc.item()
 
 
 def eval(
@@ -120,6 +120,6 @@ def eval(
                 pbar.set_description(f"[VAL] {avg_ce_loss=:.3f} {avg_acc=:.3f} {avg_hsic=:.3f}")
 
     if return_confusion_matrix:
-        return avg_ce_loss, avg_acc.item(), avg_hsic, confusion_matrix
+        return avg_hsic, avg_ce_loss, avg_acc.item(), confusion_matrix
     else:
-        return avg_ce_loss, avg_acc.item(), avg_hsic
+        return avg_hsic, avg_ce_loss, avg_acc.item()
