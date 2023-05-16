@@ -74,7 +74,7 @@ class CGCResidual(nn.Module):
         shape = residuals.shape
         residuals = residuals.reshape(-1, self.hidden_dim)
         residuals = self.bn(residuals)
-        residuals.reshape(*shape)
+        residuals = residuals.reshape(*shape)
         return residuals
 
     def classify_residuals(self, residuals: torch.Tensor) -> Tuple[torch.Tensor]:
