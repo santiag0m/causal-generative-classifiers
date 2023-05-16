@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import List, Dict, Tuple
 
 import matplotlib
+import matplotlib.cm as cm
 import matplotlib.pyplot as plt
 
 from lib.plot.colorline import colorline
@@ -50,6 +51,13 @@ def main(trial_folder: str):
         colorline(hsic_loss, ce_loss, ax=ax, alpha=0.3)
         hsic_min, hsic_max = update_min_max(hsic_min, hsic_max, hsic_loss)
         ce_min, ce_max = update_min_max(ce_min, ce_max, ce_loss)
+
+    # Create a ScalarMappable with your desired cmap and normalization
+    sm = cm.ScalarMappable(cmap=plt.get_cmap("coolwarm_r"), norm=plt.Normalize(0.0, 1.0))
+
+    # Plot the colorbar with custom tick labels
+    cbar = f.colorbar(sm, ticks=[0, 1], orientation='vertical')
+    cbar.ax.set_yticklabels(['start', 'finish'])
 
     ax.set_xlim([0.9 * hsic_min, 1.1 * hsic_max])
     ax.set_ylim([0.9 * ce_min, 1.1 * ce_max])
