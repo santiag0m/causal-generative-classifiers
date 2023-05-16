@@ -6,8 +6,9 @@ from tqdm import tqdm
 from torch.utils.data import DataLoader
 from torch.nn.functional import cross_entropy
 
+from lib.models import CGCResidual
+from lib.losses.hsic import hsic_residuals
 from .running_average import RunningAverage
-
 
 def train(
     *,
@@ -20,6 +21,7 @@ def train(
     model.train()
     device = next(model.parameters()).device
 
+    cum_hsic = 0
     cum_ce_loss = 0
     if use_pbar:
         pbar = tqdm(enumerate(dataloader), total=len(dataloader))
@@ -32,7 +34,13 @@ def train(
         inputs = inputs.to(device)
         targets = targets.to(device)
 
-        logits = model(inputs)
+        if isinstance(model, CGCResidual):
+            z = model.get_features(inputs)
+            residuals = model.get_residuals(z)
+            logits = model.classify_residuals(residuals)
+            cum_hsic += hsic_residuals(residuals.clone(), targets, featurewise=False).cpu().item()
+        else:
+            logits = model(inputs)
 
         ce_loss = cross_entropy(logits, targets, weight=class_weights)
 
@@ -47,10 +55,11 @@ def train(
 
         cum_ce_loss += ce_loss
         avg_ce_loss = cum_ce_loss / (idx + 1)
+        avg_hsic = cum_hsic / (idx + 1)
 
         if use_pbar:
-            pbar.set_description(f"{avg_ce_loss=:.3f} {avg_acc=:.3f}")
-    return avg_ce_loss, avg_acc.item()
+            pbar.set_description(f"{avg_ce_loss=:.3f} {avg_acc=:.3f} {avg_hsic=:.3f}")
+    return avg_ce_loss, avg_acc.item(), avg_hsic
 
 
 def eval(
@@ -64,6 +73,7 @@ def eval(
     device = next(model.parameters()).device
 
     cum_ce_loss = 0
+    cum_hsic = 0
     if use_pbar:
         pbar = tqdm(enumerate(dataloader), total=len(dataloader))
     else:
@@ -78,7 +88,13 @@ def eval(
             inputs = inputs.to(device)
             targets = targets.to(device)
 
-            logits = model(inputs)
+            if isinstance(model, CGCResidual):
+                z = model.get_features(inputs)
+                residuals = model.get_residuals(z)
+                logits = model.classify_residuals(residuals)
+                cum_hsic += hsic_residuals(residuals.clone(), targets, featurewise=False).cpu().item()
+            else:
+                logits = model(inputs)
 
             ce_loss = cross_entropy(logits, targets).item()
 
@@ -98,11 +114,12 @@ def eval(
 
             cum_ce_loss += ce_loss
             avg_ce_loss = cum_ce_loss / (idx + 1)
+            avg_hsic = cum_hsic / (idx + 1)
 
             if use_pbar:
-                pbar.set_description(f"[VAL] {avg_ce_loss=:.3f} {avg_acc=:.3f}")
+                pbar.set_description(f"[VAL] {avg_ce_loss=:.3f} {avg_acc=:.3f} {avg_hsic=:.3f}")
 
     if return_confusion_matrix:
-        return avg_ce_loss, avg_acc.item(), confusion_matrix
+        return avg_ce_loss, avg_acc.item(), avg_hsic, confusion_matrix
     else:
-        return avg_ce_loss, avg_acc.item()
+        return avg_ce_loss, avg_acc.item(), avg_hsic

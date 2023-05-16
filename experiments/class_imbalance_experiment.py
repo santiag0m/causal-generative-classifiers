@@ -87,23 +87,23 @@ def experiment(
         seed=seed,
         transform=transform,
     )
-    train_dataloader = DataLoader(train_dataset, batch_size=batch_size)
-    val_dataloader = DataLoader(val_dataset, batch_size=batch_size)
-    target_dataloader = DataLoader(target_dataset, batch_size=batch_size)
+    train_dataloader = DataLoader(train_dataset, batch_size=batch_size, num_workers=2)
+    val_dataloader = DataLoader(val_dataset, batch_size=batch_size, num_workers=2)
+    target_dataloader = DataLoader(target_dataset, batch_size=batch_size, num_workers=2)
 
     if use_residual:
         # Fit class priors before training
         model.fit_class_probs(train_dataloader)
 
     # Train
-    train_history = {"cross_entropy": []}
-    val_history = {"cross_entropy": []}
+    train_history = {"cross_entropy": [], "hsic": []}
+    val_history = {"cross_entropy": [], "hsic": []}
     best_loss = 1e10
 
     for epoch_idx in range(epochs):
         if verbose:
             print(f"\nEpoch {epoch_idx}")
-        train_ce_loss, train_accuracy = train(
+        train_ce_loss, train_accuracy, train_hsic = train(
             model=model,
             dataloader=train_dataloader,
             optim=SGD(
@@ -114,13 +114,15 @@ def experiment(
             ),
             use_pbar=verbose,
         )
-        val_ce_loss, val_accuracy = eval(
+        val_ce_loss, val_accuracy, val_hsic = eval(
             model=model,
             dataloader=val_dataloader,
             use_pbar=verbose,
         )
         train_history["cross_entropy"].append(train_ce_loss)
+        train_history["hsic"].append(train_hsic)
         val_history["cross_entropy"].append(val_ce_loss)
+        val_history["hsic"].append(val_hsic)
 
         if val_accuracy <= best_loss:
             torch.save(model.state_dict(), "./best.pth")
@@ -133,13 +135,13 @@ def experiment(
         model.class_probs.copy_(y_marginal)
 
     # Check accuracy
-    target_ce_loss, target_accuracy = eval(
+    target_ce_loss, target_accuracy, target_hsic = eval(
         model=model,
         dataloader=target_dataloader,
         use_pbar=verbose,
     )
 
-    print(f"{train_accuracy=:.4f}, {val_accuracy=:.4f}, {target_accuracy=:.4f}\n")
+    print(f"{train_accuracy=:.4f}, {val_accuracy=:.4f}, {target_accuracy=:.4f}, {target_hsic:=.4f}\n")
 
     results = {
         "train_history": train_history,
