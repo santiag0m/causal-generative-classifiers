@@ -11,6 +11,7 @@ from lib.losses.hsic import hsic_residuals
 from .mmdm import MMDMOptim
 from .running_average import RunningAverage
 
+
 def train(
     *,
     model: nn.Module,
@@ -36,41 +37,35 @@ def train(
         inputs = inputs.to(device)
         targets = targets.to(device)
 
-        if use_hsic:
-            if not isinstance(model, CGCResidual):
-                raise TypeError(f"Expected model of class 'CGCResidual', got '{type(model)}'")
-            
+        if isinstance(model, CGCResidual):
             z = model.get_features(inputs)
             residuals = model.get_residuals(z)
             logits = model.classify_residuals(residuals)
-
-            # MMDM Update
             hsic_loss = hsic_residuals(residuals, targets, featurewise=False)
             ce_loss = cross_entropy(logits, targets, weight=class_weights)
+
+            cum_hsic_loss += hsic_loss.item()
+            cum_ce_loss += ce_loss.item()
+        else:
+            logits = model(inputs)
+            ce_loss = cross_entropy(logits, targets, weight=class_weights)
+            cum_ce_loss += ce_loss.item()
+
+        if isinstance(model, CGCResidual) and use_hsic:
             loss = optim.lagrangian(
                 main_loss=ce_loss, constrained_loss=hsic_loss, target_value=0
             )
             loss.backward()
             optim.step()
-
-            hsic_loss = hsic_loss.item()
-            cum_hsic_loss += hsic_loss
         else:
-            # Normal update
-            logits = model(inputs)
-            ce_loss = cross_entropy(logits, targets, weight=class_weights)
             ce_loss.backward()
             optim.model_optim.step()
-        
-        ce_loss = ce_loss.item()
 
         preds = torch.argmax(logits, dim=-1)
         correct = preds == targets
         accuracy.update(correct.cpu())
+
         avg_acc = accuracy.value
-
-        cum_ce_loss += ce_loss
-
         avg_hsic_loss = cum_hsic_loss / (idx + 1)
         avg_ce_loss = cum_ce_loss / (idx + 1)
 
@@ -111,13 +106,15 @@ def eval(
                 z = model.get_features(inputs)
                 residuals = model.get_residuals(z)
                 logits = model.classify_residuals(residuals)
+                hsic_loss = hsic_residuals(residuals, targets, featurewise=False)
+                ce_loss = cross_entropy(logits, targets)
 
-                hsic_loss = hsic_residuals(residuals, targets, featurewise=False).item()
-                cum_hsic_loss += hsic_loss
+                cum_hsic_loss += hsic_loss.item()
+                cum_ce_loss += ce_loss.item()
             else:
                 logits = model(inputs)
-
-            ce_loss = cross_entropy(logits, targets).item()
+                ce_loss = cross_entropy(logits, targets)
+                cum_ce_loss += ce_loss.item()
 
             preds = torch.argmax(logits, dim=-1)
             correct = preds == targets
@@ -133,7 +130,6 @@ def eval(
                 batch_confusion_matrix = batch_confusion_matrix.coalesce().to_dense()
                 confusion_matrix += batch_confusion_matrix
 
-            cum_ce_loss += ce_loss
             avg_hsic_loss = cum_hsic_loss / (idx + 1)
             avg_ce_loss = cum_ce_loss / (idx + 1)
 
