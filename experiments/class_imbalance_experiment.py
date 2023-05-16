@@ -10,7 +10,8 @@ from torchvision import transforms
 from torch.utils.data import DataLoader, random_split
 
 from lib.utils import label_shift
-from lib.utils.ce_trainer import train, eval
+from lib.utils.mmdm import MMDMOptim
+from lib.utils.mmdm_trainer import train, eval
 from lib.datasets import ImbalancedImageFolder
 from lib.models import get_backbone, CGCResidual, DotClassifier
 from lib.utils.expectation_maximization import expectation_maximization
@@ -19,13 +20,12 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 NUM_CLASSES = 10
 
-TRIAL_FOLDER = "trial_results"
-
 
 def experiment(
     hidden_dim: int = 10,
     cifar10: bool = False,
     spectral_norm: bool = False,
+    use_hsic: bool = False,
     verbose: bool = True,
     seed: int = 0,
     use_residual: bool = False,
@@ -91,6 +91,15 @@ def experiment(
     val_dataloader = DataLoader(val_dataset, batch_size=batch_size, num_workers=2)
     target_dataloader = DataLoader(target_dataset, batch_size=batch_size, num_workers=2)
 
+    # Setup Optimizer
+    mmdm_optim = MMDMOptim(
+        params=model.parameters(),
+        lr=learning_rate,
+        momentum=momentum,
+        weight_decay=weight_decay,
+        model_optim=torch.optim.SGD,
+    )
+
     if use_residual:
         # Fit class priors before training
         model.fit_class_probs(train_dataloader)
@@ -103,18 +112,14 @@ def experiment(
     for epoch_idx in range(epochs):
         if verbose:
             print(f"\nEpoch {epoch_idx}")
-        train_ce_loss, train_accuracy, train_hsic = train(
+        train_hsic, train_ce_loss, train_accuracy = train(
             model=model,
             dataloader=train_dataloader,
-            optim=SGD(
-                model.parameters(),
-                lr=learning_rate,
-                momentum=momentum,
-                weight_decay=weight_decay,
-            ),
+            optim=mmdm_optim,
             use_pbar=verbose,
+            use_hsic=use_hsic,
         )
-        val_ce_loss, val_accuracy, val_hsic = eval(
+        val_hsic, val_ce_loss, val_accuracy = eval(
             model=model,
             dataloader=val_dataloader,
             use_pbar=verbose,
@@ -135,13 +140,15 @@ def experiment(
         model.class_probs.copy_(y_marginal)
 
     # Check accuracy
-    target_ce_loss, target_accuracy, target_hsic = eval(
+    target_hsic, target_ce_loss, target_accuracy = eval(
         model=model,
         dataloader=target_dataloader,
         use_pbar=verbose,
     )
 
-    print(f"{train_accuracy=:.4f}, {val_accuracy=:.4f}, {target_accuracy=:.4f}, {target_hsic:=.4f}\n")
+    print(
+        f"{train_accuracy=:.4f}, {val_accuracy=:.4f}, {target_accuracy=:.4f}, {target_hsic:=.4f}\n"
+    )
 
     results = {
         "train_history": train_history,
@@ -154,17 +161,19 @@ def experiment(
     return results
 
 
-def multiple_trials(experiment_config: Dict, num_trials: int) -> Dict:
-    if os.path.isdir(TRIAL_FOLDER):
-        shutil.rmtree(TRIAL_FOLDER)
-    os.makedirs(TRIAL_FOLDER)
+def multiple_trials(
+    experiment_config: Dict, num_trials: int, trial_folder: str
+) -> Dict:
+    if os.path.isdir(trial_folder):
+        shutil.rmtree(trial_folder)
+    os.makedirs(trial_folder)
 
     results = []
     for i in range(num_trials):
         print(f"Experiment {i+1}/{num_trials}")
         trial_results = experiment(**experiment_config, seed=i)
         results.append(trial_results)
-        with open(os.path.join(TRIAL_FOLDER, f"trial_{i:03d}.json"), "w") as f:
+        with open(os.path.join(trial_folder, f"trial_{i:03d}.json"), "w") as f:
             json.dump(trial_results, f)
 
     train_accuracy = [trial["train_accuracy"] for trial in results]
@@ -210,36 +219,46 @@ def main(
     hidden_dim: int = 10,
     num_trials: int = 20,
     use_residual: bool = False,
+    use_hsic: bool = False,
     spectral_norm: bool = False,
+    trial_folder_prefix: str = "trial_results",
 ):
     models = [
         {"model_name": "CNN", "cnn": True},
     ]
+
+    suffix = ""
+    if cifar10:
+        suffix += "_cifar10"
+    else:
+        suffix += "_mnist"
+
+    if use_residual:
+        suffix += "_residual"
+    if use_hsic:
+        suffix += "_hsic"
+    if spectral_norm:
+        suffix += "_sn"
 
     results = []
     for model_config in models:
         experiment_config = {
             "cifar10": cifar10,
             "use_residual": use_residual,
+            "use_hsic": use_hsic,
             "spectral_norm": spectral_norm,
             "hidden_dim": hidden_dim,
         }
         experiment_config = {**experiment_config, **model_config}
         exp_results = multiple_trials(
-            num_trials=num_trials, experiment_config=experiment_config
+            num_trials=num_trials,
+            experiment_config=experiment_config,
+            trial_folder=trial_folder_prefix + suffix,
         )
         results.append(exp_results)
     results = group_results(results)
 
-    if cifar10:
-        prefix = "cifar10"
-    else:
-        prefix = "mnist"
-
-    if use_residual:
-        results.to_csv(f"ce_{prefix}_results_residual.csv", index=False)
-    else:
-        results.to_csv(f"ce_{prefix}_results.csv", index=False)
+    results.to_csv(f"class_imbalance_results{suffix}.csv", index=False)
 
 
 if __name__ == "__main__":
@@ -247,7 +266,13 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Experiment setup")
     parser.add_argument("--use_residual", action="store_true")
+    parser.add_argument("--use_hsic", action="store_true")
     parser.add_argument("--spectral_norm", action="store_true")
     parser.add_argument("--cifar10", action="store_true")
     args = parser.parse_args()
-    main(cifar10=args.cifar10, use_residual=args.use_residual, spectral_norm=args.spectral_norm)
+    main(
+        cifar10=args.cifar10,
+        use_residual=args.use_residual,
+        use_hsic=args.use_hsic,
+        spectral_norm=args.spectral_norm,
+    )
