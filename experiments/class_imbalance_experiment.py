@@ -29,6 +29,8 @@ def experiment(
     verbose: bool = True,
     seed: int = 0,
     use_residual: bool = False,
+    random_shift: bool = False,
+    random_shift_temperature: float = 0.5,
     **kwargs,
 ):
     torch.manual_seed(seed)
@@ -71,10 +73,25 @@ def experiment(
         model = DotClassifier(backbone, NUM_CLASSES, num_layers=1)
     model.to(DEVICE)
 
+    # Set class distribution
+    if random_shift:
+        source_label_distribution = label_shift.generate_random_weights(
+            NUM_CLASSES, random_shift_temperature
+        )
+        target_label_distribution = label_shift.generate_random_weights(
+            NUM_CLASSES, random_shift_temperature
+        )
+    else:
+        source_label_distribution = label_shift.generate_class_unbalance(NUM_CLASSES)
+        target_label_distribution = label_shift.generate_single_class(NUM_CLASSES)
+
+    print("Source Distribution: ", source_label_distribution)
+    print("Target distribution: ", target_label_distribution)
+
     # Create Datasets
     source_dataset = ImbalancedImageFolder(
         f"data/class_{model_name}/train",
-        class_weights=label_shift.generate_class_unbalance(NUM_CLASSES),
+        class_weights=source_label_distribution,
         seed=seed,
         transform=transform,
     )
@@ -83,7 +100,7 @@ def experiment(
     )
     target_dataset = ImbalancedImageFolder(
         f"data/class_{model_name}/test",
-        class_weights=label_shift.generate_single_class(NUM_CLASSES),
+        class_weights=target_label_distribution,
         seed=seed,
         transform=transform,
     )
@@ -136,7 +153,8 @@ def experiment(
     # Adjust marginal
     if use_residual:
         _, y_marginal = expectation_maximization(model, target_dataloader)
-        print(y_marginal)
+        print("True marginal: ", target_label_distribution)
+        print("Estimated marginal: ", y_marginal)
         model.class_probs.copy_(y_marginal)
 
     # Check accuracy
@@ -221,6 +239,7 @@ def main(
     use_residual: bool = False,
     use_hsic: bool = False,
     spectral_norm: bool = False,
+    random_shift: bool = False,
     trial_folder_prefix: str = "trial_results",
 ):
     models = [
@@ -233,6 +252,8 @@ def main(
     else:
         suffix += "_mnist"
 
+    if random_shift:
+        suffix += "_random"
     if use_residual:
         suffix += "_residual"
     if use_hsic:
@@ -247,6 +268,7 @@ def main(
             "use_residual": use_residual,
             "use_hsic": use_hsic,
             "spectral_norm": spectral_norm,
+            "random_shift": random_shift,
             "hidden_dim": hidden_dim,
         }
         experiment_config = {**experiment_config, **model_config}
@@ -269,10 +291,12 @@ if __name__ == "__main__":
     parser.add_argument("--use_hsic", action="store_true")
     parser.add_argument("--spectral_norm", action="store_true")
     parser.add_argument("--cifar10", action="store_true")
+    parser.add_argument("--random_shift", action="store_true")
     args = parser.parse_args()
     main(
         cifar10=args.cifar10,
         use_residual=args.use_residual,
         use_hsic=args.use_hsic,
         spectral_norm=args.spectral_norm,
+        random_shift=args.random_shift,
     )

@@ -25,8 +25,10 @@ NUM_CLASSES = 10
 def experiment(
     hidden_dim: int = 10,
     cifar10: bool = False,
+    random_shift: bool = False,
     verbose: bool = True,
     seed: int = 0,
+    random_shift_temperature: float = 0.5,
     **kwargs,
 ):
     """
@@ -66,10 +68,22 @@ def experiment(
     model = DotClassifier(backbone, NUM_CLASSES, num_layers=1)
     model.to(DEVICE)
 
+    # Set class distribution
+    if random_shift:
+        source_label_distribution = label_shift.generate_random_weights(
+            NUM_CLASSES, random_shift_temperature
+        )
+        target_label_distribution = label_shift.generate_random_weights(
+            NUM_CLASSES, random_shift_temperature
+        )
+    else:
+        source_label_distribution = label_shift.generate_class_unbalance(NUM_CLASSES)
+        target_label_distribution = label_shift.generate_single_class(NUM_CLASSES)
+
     # Create Datasets
     source_dataset = ImbalancedImageFolder(
         f"data/class_{model_name}/train",
-        class_weights=label_shift.generate_class_unbalance(NUM_CLASSES),
+        class_weights=source_label_distribution,
         seed=seed,
         transform=transform,
     )
@@ -78,7 +92,7 @@ def experiment(
     )
     target_dataset = ImbalancedImageFolder(
         f"data/class_{model_name}/test",
-        class_weights=label_shift.generate_single_class(NUM_CLASSES),
+        class_weights=target_label_distribution,
         seed=seed,
         transform=transform,
     )
@@ -237,7 +251,7 @@ def main(
     cifar10: bool = False,
     hidden_dim: int = 10,
     num_trials: int = 20,
-    spectral_norm: bool = False,
+    random_shift: bool = False,
 ):
     models = [
         {"model_name": "CNN", "cnn": True},
@@ -250,11 +264,14 @@ def main(
         print("Testing on MNIST")
         suffix = "_mnist"
 
+    if random_shift:
+        suffix += "_random"
+
     results = []
     for model_config in models:
         experiment_config = {
             "cifar10": cifar10,
-            "spectral_norm": spectral_norm,
+            "random_shift": random_shift,
             "hidden_dim": hidden_dim,
         }
         experiment_config = {**experiment_config, **model_config}
@@ -274,5 +291,6 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Experiment setup")
     parser.add_argument("--cifar10", action="store_true")
+    parser.add_argument("--random_shift", action="store_true")
     args = parser.parse_args()
-    main(cifar10=args.cifar10)
+    main(cifar10=args.cifar10, random_shift=args.random_shift)

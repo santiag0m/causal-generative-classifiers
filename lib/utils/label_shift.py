@@ -5,8 +5,8 @@ def generate_uniform_weights(num_classes: int):
     return {str(i): 1.0 / num_classes for i in range(num_classes)}
 
 
-def generate_random_weights(num_classes: int):
-    weights = torch.softmax(torch.randn(num_classes), 0)
+def generate_random_weights(num_classes: int, temperature: float):
+    weights = torch.softmax(torch.randn(num_classes) / temperature, 0)
     return {str(i): weights[i] for i in range(num_classes)}
 
 
