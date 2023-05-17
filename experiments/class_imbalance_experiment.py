@@ -10,8 +10,8 @@ from torchvision import transforms
 from torch.utils.data import DataLoader, random_split
 
 from lib.utils import label_shift
-from lib.utils.mmdm import MMDMOptim
-from lib.utils.mmdm_trainer import train, eval
+from lib.utils.mdmm import MDMMOptim
+from lib.utils.mdmm_trainer import train, eval
 from lib.datasets import ImbalancedImageFolder
 from lib.models import get_backbone, CGCResidual, DotClassifier
 from lib.utils.expectation_maximization import expectation_maximization
@@ -92,7 +92,7 @@ def experiment(
     target_dataloader = DataLoader(target_dataset, batch_size=batch_size, num_workers=2)
 
     # Setup Optimizer
-    mmdm_optim = MMDMOptim(
+    mmdm_optim = MDMMOptim(
         params=model.parameters(),
         lr=learning_rate,
         momentum=momentum,

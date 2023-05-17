@@ -8,7 +8,7 @@ from torch.nn.functional import cross_entropy
 
 from lib.models import CGCResidual
 from lib.losses.hsic import hsic_residuals
-from .mmdm import MMDMOptim
+from .mdmm import MDMMOptim
 from .running_average import RunningAverage
 
 
@@ -16,7 +16,7 @@ def train(
     *,
     model: nn.Module,
     dataloader: DataLoader,
-    optim: MMDMOptim,
+    optim: MDMMOptim,
     use_pbar: bool = False,
     use_hsic: bool = True,
     class_weights: Optional[torch.Tensor] = None,
