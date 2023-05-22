@@ -109,7 +109,9 @@ class CGCResidual(nn.Module):
 
         return logits_joint
 
-    def fit_class_probs(self, dataloader: DataLoader):
+    def fit_class_probs(
+        self, dataloader: DataLoader, save: bool = True
+    ) -> torch.Tensor:
         total = 0
         class_probs = 0
         for x, y in dataloader:
@@ -121,11 +123,28 @@ class CGCResidual(nn.Module):
             ).sum(dim=0)
 
         class_probs = class_probs / total
-        self.class_probs.copy_(class_probs)
 
-        self.fitted_class_probs = True
+        if save:
+            self.class_probs.copy_(class_probs)
+            self.fitted_class_probs = True
 
-        print(f"Class probabilities: {self.class_probs}")
+        return class_probs
+
+    def fit_pred_probs(self, dataloader: DataLoader) -> torch.Tensor:
+        total = 0
+        pred_probs = 0
+        for x, y in dataloader:
+            x = self.move_tensor_to_device(x)
+
+            logits_y_x = self.forward(x)
+            probs_y = torch.softmax(logits_y_x, dim=-1)
+
+            total += x.shape[0]
+            pred_probs += probs_y.sum(dim=0)
+
+        pred_probs = pred_probs / total
+
+        return pred_probs
 
     def move_tensor_to_device(self, x: torch.Tensor) -> torch.Tensor:
         device = next(self.parameters()).device

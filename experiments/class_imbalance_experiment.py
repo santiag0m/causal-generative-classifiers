@@ -42,6 +42,7 @@ def experiment(
         weight_decay = 0.0001
         momentum = 0.9
         model_name = "cifar10"
+        num_layers = 2
         transform = transforms.Compose(
             [
                 transforms.ToTensor(),
@@ -55,6 +56,7 @@ def experiment(
         weight_decay = 0
         momentum = 0
         model_name = "mnist"
+        num_layers = 1
         transform = transforms.Compose(
             [
                 transforms.Grayscale(),
@@ -67,10 +69,10 @@ def experiment(
     if use_residual:
         print("Using residual")
         model = CGCResidual(
-            backbone, NUM_CLASSES, spectral_norm=spectral_norm, num_layers=1
+            backbone, NUM_CLASSES, spectral_norm=spectral_norm, num_layers=num_layers
         )
     else:
-        model = DotClassifier(backbone, NUM_CLASSES, num_layers=1)
+        model = DotClassifier(backbone, NUM_CLASSES, num_layers=num_layers)
     model.to(DEVICE)
 
     # Set class distribution
@@ -146,13 +148,24 @@ def experiment(
         val_history["cross_entropy"].append(val_ce_loss)
         val_history["hsic"].append(val_hsic)
 
-        if val_accuracy <= best_loss:
+        if val_ce_loss <= best_loss:
             torch.save(model.state_dict(), "./best.pth")
-            best_loss = val_accuracy
+            best_loss = val_ce_loss
 
     # Adjust marginal
     if use_residual:
-        _, y_marginal = expectation_maximization(model, target_dataloader)
+        # Estimate predicted probs, and calculate calibration error
+        true_probs = model.fit_class_probs(val_dataloader, save=False)
+        pred_probs = model.fit_pred_probs(val_dataloader)
+        difference = true_probs - pred_probs
+        print("True val probs: ", true_probs)
+        print("Pred val probs: ", pred_probs)
+        print("Difference: ", difference)
+
+        # Adjust marginal
+        y_marginal = expectation_maximization(
+            model, target_dataloader, y_marginal=pred_probs
+        )
         print("True marginal: ", target_label_distribution)
         print("Estimated marginal: ", y_marginal)
         model.class_probs.copy_(y_marginal)
