@@ -1,17 +1,23 @@
 import torch
 
 
-def expectation_maximization(model, dataloader, num_iterations=20, eps=1e-6):
-    if num_iterations < 1:
+def expectation_maximization(
+    model,
+    dataloader,
+    y_marginal: torch.Tensor,
+    hard: bool = False,
+    max_iterations: int = 100,
+    tolerance: float = 1e-6,
+    eps: float = 1e-6,
+):
+    if max_iterations < 1:
         raise ValueError("At least one (1) iteration is required")
 
     log_densities = get_feature_densities(model, dataloader)
     _, num_classes = log_densities.shape
 
-    # Assume uniform prior
-    y_marginal = torch.ones((num_classes,), device=log_densities.device) / num_classes
-
-    for _ in range(num_iterations):
+    iters = 0
+    while True:
         probs_y = torch.clamp(y_marginal, min=eps, max=1 - eps)  # (, Class)
         logits_y = torch.log(probs_y[None, ...])  # (1, Class)
 
@@ -20,15 +26,26 @@ def expectation_maximization(model, dataloader, num_iterations=20, eps=1e-6):
         logits_z = torch.log(torch.exp(logits_joint).sum(dim=1, keepdims=True))
         logits_y_z = logits_joint - logits_z
 
-        # Take max likelihood prediction
-        y_pred = torch.argmax(logits_y_z, dim=1, keepdims=False)
-        y_pred = torch.nn.functional.one_hot(y_pred, num_classes=num_classes)
+        if hard:
+            # Take max likelihood prediction
+            y_pred = torch.argmax(logits_y_z, dim=1, keepdims=False)
+            y_pred = torch.nn.functional.one_hot(y_pred, num_classes=num_classes)
+        else:
+            # Take average prediction
+            y_pred = torch.softmax(logits_y_z, dim=-1)
 
         # Calculate new marginal
-        y_marginal = y_pred.sum(dim=0, keepdims=False)
-        y_marginal = y_marginal / y_marginal.sum()
+        new_marginal = y_pred.sum(dim=0, keepdims=False)
+        new_marginal = new_marginal / new_marginal.sum()
 
-    return logits_y_z, y_marginal
+        diff = new_marginal - y_marginal
+        diff = torch.max(torch.abs(diff))
+
+        y_marginal = new_marginal
+        iters += 1
+
+        if (diff <= tolerance) or (iters >= max_iterations):
+            return y_marginal
 
 
 def get_feature_densities(model, dataloader):
