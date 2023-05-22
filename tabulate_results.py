@@ -42,9 +42,13 @@ def main(
     results_folder: str, prefix: str = "class_imbalance_results_mnist"
 ) -> pd.DataFrame:
     files = [
-        file for file in os.listdir(results_folder) if is_results_file(file, prefix)
+        os.path.join(results_folder, file)
+        for file in os.listdir(results_folder)
+        if is_results_file(file, prefix)
     ]
-    accuracy = [tabulate(file, prefix) for file in sorted(files)]
+    accuracy = [
+        tabulate(file, os.path.join(results_folder, prefix)) for file in sorted(files)
+    ]
     df = pd.concat(accuracy, axis=1)
 
     df = df.T
