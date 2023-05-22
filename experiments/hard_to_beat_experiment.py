@@ -130,9 +130,9 @@ def experiment(
         train_history["cross_entropy"].append(train_ce_loss)
         val_history["cross_entropy"].append(val_ce_loss)
 
-        if val_accuracy <= best_loss:
+        if val_ce_loss <= best_loss:
             torch.save(model.state_dict(), "./best.pth")
-            best_loss = val_accuracy
+            best_loss = val_ce_loss
 
     # Calibrate val
     device = next(model.parameters()).device

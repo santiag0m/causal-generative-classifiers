@@ -128,9 +128,9 @@ def experiment(
         train_history["cross_entropy"].append(train_ce_loss)
         val_history["cross_entropy"].append(val_ce_loss)
 
-        if val_accuracy <= best_loss:
+        if val_ce_loss <= best_loss:
             torch.save(model.state_dict(), "./best.pth")
-            best_loss = val_accuracy
+            best_loss = val_ce_loss
 
     # Calculate confusion matrix on second split
     _, _, _, confusion_matrix_train = eval(
@@ -310,4 +310,4 @@ if __name__ == "__main__":
     parser.add_argument("--cifar10", action="store_true")
     parser.add_argument("--random_shift", action="store_true")
     args = parser.parse_args()
-    main(cifar10=args.cifar10)
+    main(cifar10=args.cifar10, random_shift=args.random_shift)
