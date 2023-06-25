@@ -53,4 +53,6 @@ def main(
 
     df = df.T
 
+    df = df[["train", "val", "target"]]
+
     return df
