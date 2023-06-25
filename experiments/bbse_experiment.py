@@ -6,22 +6,24 @@ from typing import List, Dict
 import torch
 import pandas as pd
 from torch.optim import SGD
-from torchvision import transforms
 from torch.utils.data import DataLoader, random_split
 
 from lib.utils import label_shift
+from lib.hyperparams import HYPERPARAMS
 from lib.utils.ce_trainer import train, eval
 from lib.datasets import ImbalancedImageFolder
-from lib.models import get_backbone, DotClassifier
+from lib.models import get_backbone_for_dataset, DotClassifier
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 NUM_CLASSES = 10
 
+DATASETS = {"mnist", "cifar10", "fashion_mnist"}
+
 
 def experiment(
+    dataset: str,
     hidden_dim: int = 10,
-    cifar10: bool = False,
     random_shift: bool = False,
     verbose: bool = True,
     seed: int = 0,
@@ -33,36 +35,20 @@ def experiment(
     """
     torch.manual_seed(seed)
 
-    if cifar10:
-        epochs = 50
-        learning_rate = 0.01
-        batch_size = 128
-        weight_decay = 0.0001
-        momentum = 0.9
-        model_name = "cifar10"
-        num_layers = 2
-        transform = transforms.Compose(
-            [
-                transforms.ToTensor(),
-                transforms.Normalize((0.4914, 0.4822, 0.4465), (0.247, 0.243, 0.261)),
-            ]
-        )
-    else:
-        epochs = 20
-        learning_rate = 5e-2
-        batch_size = 32
-        weight_decay = 0
-        momentum = 0
-        model_name = "mnist"
-        num_layers = 1
-        transform = transforms.Compose(
-            [
-                transforms.Grayscale(),
-                transforms.ToTensor(),
-                transforms.Normalize((0.1307,), (0.3081,)),
-            ]
-        )
-    backbone = get_backbone(model_name=model_name, hidden_dim=hidden_dim)
+    if dataset not in DATASETS:
+        raise ValueError(f"Dataset '{dataset}' is not supported")
+
+    params = HYPERPARAMS[dataset]
+
+    epochs = params["epochs"]
+    learning_rate = params["learning_rate"]
+    batch_size = params["batch_size"]
+    weight_decay = params["weight_decay"]
+    momentum = params["momentum"]
+    num_layers = params["num_laydataseters"]
+    transform = params["transform"]
+
+    backbone = get_backbone_for_dataset(dataset=dataset, hidden_dim=hidden_dim)
 
     model = DotClassifier(backbone, NUM_CLASSES, num_layers=num_layers)
     model.to(DEVICE)
@@ -81,7 +67,7 @@ def experiment(
 
     # Create Datasets
     source_dataset = ImbalancedImageFolder(
-        f"data/class_{model_name}/train",
+        f"data/class_{dataset}/train",
         class_weights=source_label_distribution,
         seed=seed,
         transform=transform,
@@ -92,7 +78,7 @@ def experiment(
     train_split_1, train_split_2 = random_split(train_dataset, [5_000, 5_000])
 
     target_dataset = ImbalancedImageFolder(
-        f"data/class_{model_name}/test",
+        f"data/class_{dataset}/test",
         class_weights=target_label_distribution,
         seed=seed,
         transform=transform,
@@ -266,7 +252,7 @@ def group_results(results: List[Dict]) -> pd.DataFrame:
 
 
 def main(
-    cifar10: bool = False,
+    dataset: str,
     hidden_dim: int = 10,
     num_trials: int = 20,
     spectral_norm: bool = False,
@@ -276,20 +262,19 @@ def main(
         {"model_name": "CNN", "cnn": True},
     ]
 
-    if cifar10:
-        print("Testing on CIFAR10")
-        suffix = "_cifar10"
-    else:
-        print("Testing on MNIST")
-        suffix = "_mnist"
+    if dataset not in DATASETS:
+        raise ValueError(f"Dataset '{dataset}' is not supported")
 
+    print(f"Dataset: {dataset}")
+
+    suffix = f"_{dataset}"
     if random_shift:
         suffix += "_random"
 
     results = []
     for model_config in models:
         experiment_config = {
-            "cifar10": cifar10,
+            "dataset": dataset,
             "spectral_norm": spectral_norm,
             "hidden_dim": hidden_dim,
         }
@@ -309,7 +294,7 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description="Experiment setup")
-    parser.add_argument("--cifar10", action="store_true")
+    parser.add_argument("--dataset", type=str)
     parser.add_argument("--random_shift", action="store_true")
     args = parser.parse_args()
-    main(cifar10=args.cifar10, random_shift=args.random_shift)
+    main(dataset=args.dataset, random_shift=args.random_shift)

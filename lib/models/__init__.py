@@ -7,13 +7,13 @@ from .cgc_kde import CGCKDE
 from .dot_classifier import DotClassifier
 
 
-def get_backbone(
-    model_name: str = "mnist", hidden_dim: int = 10
+def get_backbone_for_dataset(
+    dataset: str = "mnist", hidden_dim: int = 10
 ) -> Union[MNISTBackbone, CIFAR10Backbone]:
     # Init model
-    if model_name == "mnist":
+    if dataset in {"mnist", "fashion_mnist"}:
         model = MNISTBackbone(out_features=hidden_dim)
-    elif model_name == "cifar10":
+    elif dataset == "cifar10":
         model = ResNet(n=3)  # CIFAR10Backbone(out_features=hidden_dim)
     else:
         raise ValueError(

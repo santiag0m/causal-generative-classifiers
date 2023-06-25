@@ -1,12 +1,9 @@
 import os
 
 from tqdm import tqdm
-from torchvision.datasets import MNIST, CIFAR10
+from torchvision.datasets import MNIST, CIFAR10, FashionMNIST
 
-DATASETS = {
-    "mnist": MNIST,
-    "cifar10": CIFAR10,
-}
+DATASETS = {"mnist": MNIST, "cifar10": CIFAR10, "fashion_mnist": FashionMNIST}
 
 
 def iterate_dataset(name: str, root: str, out_folder: str, train: bool):
