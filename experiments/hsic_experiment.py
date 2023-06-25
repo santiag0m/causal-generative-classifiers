@@ -13,7 +13,7 @@ from lib.utils import label_shift
 from lib.utils.hsic_trainer import train, eval
 from lib.datasets import ImbalancedImageFolder
 from lib.utils.accuracy import compute_accuracy
-from lib.models import get_backbone
+from lib.models import get_backbone_for_dataset
 
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
@@ -69,7 +69,7 @@ def experiment(
                 transforms.Normalize((0.1307,), (0.3081,)),
             ]
         )
-    model = get_backbone(model_name=model_name, hidden_dim=hidden_dim)
+    model = get_backbone_for_dataset(dataset=model_name, hidden_dim=hidden_dim)
 
     if cifar10:
         model = torch.nn.Sequential(model, torch.nn.Linear(model.out_features, 10))

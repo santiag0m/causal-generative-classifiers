@@ -11,7 +11,7 @@ from torch.utils.data import DataLoader, random_split
 from lib.utils.hsic_trainer import train, eval
 from lib.datasets import ImbalancedImageFolder
 from lib.utils.accuracy import compute_accuracy
-from lib.models import get_backbone
+from lib.models import get_backbone_for_dataset
 
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
@@ -19,6 +19,7 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 NUM_CLASSES = 10
 
 TRIAL_FOLDER = "hsic_trial_results"
+
 
 def generate_class_unbalance():
     ratios = torch.tensor([1] + [100] * 9, dtype=torch.float32)
@@ -32,8 +33,9 @@ def generate_single_class():
     return {str(i): weights[i] for i in range(NUM_CLASSES)}
 
 
-
-def mse_one_hot(inputs: torch.tensor, preds: torch.tensor, targets: torch.tensor) -> torch.Tensor:
+def mse_one_hot(
+    inputs: torch.tensor, preds: torch.tensor, targets: torch.tensor
+) -> torch.Tensor:
     targets = torch.nn.functional.one_hot(targets, num_classes=NUM_CLASSES).float()
     targets = targets.to(preds.device)
     residuals = (targets - preds) ** 2
@@ -77,14 +79,11 @@ def experiment(
                 transforms.Normalize((0.1307,), (0.3081,)),
             ]
         )
-    model = get_backbone(model_name=model_name, hidden_dim=hidden_dim)
-    
+    model = get_backbone_for_dataset(dataset=model_name, hidden_dim=hidden_dim)
+
     if cifar10:
-        model = torch.nn.Sequential(
-            model,
-            torch.nn.Linear(model.out_features, 10)
-        )
-    
+        model = torch.nn.Sequential(model, torch.nn.Linear(model.out_features, 10))
+
     model.to(DEVICE)
 
     # Create Datasets
@@ -109,11 +108,11 @@ def experiment(
 
     # Setup Optimizer
     optim = torch.optim.SGD(
-                model.parameters(),
-                lr=learning_rate,
-                momentum=momentum,
-                weight_decay=weight_decay,
-            )
+        model.parameters(),
+        lr=learning_rate,
+        momentum=momentum,
+        weight_decay=weight_decay,
+    )
 
     # Train
     train_history = []
@@ -228,10 +227,7 @@ def main(
 
     results = []
     for model_config in models:
-        experiment_config = {
-            "cifar10": cifar10,
-            "hidden_dim": hidden_dim
-        }
+        experiment_config = {"cifar10": cifar10, "hidden_dim": hidden_dim}
         experiment_config = {**experiment_config, **model_config}
         exp_results = multiple_trials(
             num_trials=num_trials, experiment_config=experiment_config
